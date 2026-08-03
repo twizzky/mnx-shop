@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# Environment files with real secrets should never be committed.
+# .env is included here as a template with placeholder values only;
+# if you fill in real keys, keep this file untracked in your own repo.
+.env.local
+.env.*.local
+
+.DS_Store
+*.log
+
+.vercel
+.env*

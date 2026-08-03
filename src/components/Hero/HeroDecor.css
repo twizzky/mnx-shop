@@ -1,0 +1,31 @@
+.hero-decor {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.hero-logo-mark {
+  position: absolute;
+  top: 50%;
+  right: -10%;
+  width: min(74vw, 780px);
+  transform: translateY(-50%);
+  opacity: 0.075;
+}
+
+.hero-flower-graphic {
+  position: absolute;
+  opacity: 0;
+  animation: heroFlowerIn 0.9s var(--ease-soft) forwards;
+  animation-delay: 0.1s;
+}
+@keyframes heroFlowerIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}

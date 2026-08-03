@@ -1,0 +1,15 @@
+.doodle-flower {
+  position: absolute;
+  pointer-events: none;
+}
+.doodle-flower .petal {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.4;
+}
+.doodle-flower .center {
+  fill: var(--ink);
+}
+.doodle-flower.spin {
+  animation: spin 26s linear infinite;
+}

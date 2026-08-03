@@ -1,0 +1,76 @@
+.category-row {
+  padding: 40px 0;
+}
+.category-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+.category-row-head h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(20px, 2.8vw, 28px);
+  letter-spacing: -0.01em;
+}
+.category-row-nav {
+  display: flex;
+  gap: 8px;
+}
+.category-row-nav button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s var(--ease);
+}
+.category-row-nav button:hover {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+/* Touch devices swipe the row directly — arrows are a mouse-only convenience. */
+@media (max-width: 640px) {
+  .category-row-nav {
+    display: none;
+  }
+}
+
+.category-row-scroll {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  padding: 4px 32px 24px;
+  /* Hide the scrollbar for a cleaner look; scrolling/swiping still works
+     via trackpad, touch, or the arrow buttons above. */
+  scrollbar-width: none;
+}
+.category-row-scroll::-webkit-scrollbar {
+  display: none;
+}
+.category-row-item {
+  flex: 0 0 auto;
+  width: 240px;
+  scroll-snap-align: start;
+}
+@media (max-width: 640px) {
+  .category-row-scroll {
+    padding: 4px 20px 24px;
+    gap: 14px;
+  }
+  .category-row-item {
+    width: 62vw;
+  }
+}
+@media (min-width: 1100px) {
+  .category-row-item {
+    width: 264px;
+  }
+}

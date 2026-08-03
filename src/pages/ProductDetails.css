@@ -1,0 +1,122 @@
+.pd-wrap {
+  padding: 150px 0 120px;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gray-600);
+  margin-bottom: 40px;
+  transition: gap 0.3s var(--ease), color 0.3s;
+}
+.back-link:hover {
+  gap: 12px;
+  color: var(--ink);
+}
+.pd-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 80px;
+}
+@media (max-width: 860px) {
+  .pd-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+}
+.pd-main-img {
+  aspect-ratio: 1/1;
+  background: var(--gray-100);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.pd-main-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pd-thumbs {
+  display: flex;
+  gap: 10px;
+}
+.pd-thumb {
+  width: 76px;
+  height: 76px;
+  background: var(--gray-100);
+  overflow: hidden;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.3s, outline 0.3s;
+}
+.pd-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pd-thumb.active {
+  opacity: 1;
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
+}
+.pd-info .pcard-cat {
+  margin-bottom: 14px;
+}
+.pd-info h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(22px, 2.8vw, 32px);
+  letter-spacing: -0.005em;
+  margin-bottom: 16px;
+  line-height: 1.3;
+}
+.pd-price {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  margin-bottom: 28px;
+}
+.pd-desc {
+  font-weight: 300;
+  line-height: 1.8;
+  color: var(--gray-900);
+  margin-bottom: 28px;
+  font-size: 15px;
+}
+.qty-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 26px;
+}
+.pd-add {
+  width: 100%;
+  max-width: 340px;
+  position: relative;
+  overflow: hidden;
+}
+.pd-add .check {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  color: var(--paper);
+  transform: translateY(100%);
+  transition: transform 0.35s var(--ease);
+}
+.pd-add.added .check {
+  transform: translateY(0);
+}
+.pd-meta {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gray-600);
+  line-height: 2;
+}

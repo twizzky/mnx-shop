@@ -1,0 +1,26 @@
+.grid-products {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  background: var(--line);
+}
+/* Used on the Shop page grid to bleed past the .wrap side padding,
+   matching the original inline `margin:0 -32px`. */
+.grid-products.full-bleed {
+  margin: 0 -32px;
+}
+@media (max-width: 980px) {
+  .grid-products {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .grid-products.full-bleed {
+    margin: 0 -20px;
+  }
+}
+@media (max-width: 520px) {
+  .grid-products {
+    grid-template-columns: 1fr;
+  }
+}

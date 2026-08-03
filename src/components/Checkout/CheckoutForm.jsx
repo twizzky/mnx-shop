@@ -1,0 +1,95 @@
+import Button from '../UI/Button';
+import { DELIVERY_METHODS } from '../../utils/constants';
+import './CheckoutForm.css';
+
+/**
+ * Fully controlled — all field values and change handling live in the
+ * parent (Checkout page), since the wilaya + delivery method selection
+ * also drives the live price breakdown shown in OrderSummary.
+ */
+export default function CheckoutForm({ values, onChange, onSubmit, submitting, wilayaOptions, wilayaLoading }) {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit();
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="field">
+        <label htmlFor="cf-name">Full Name</label>
+        <input
+          id="cf-name"
+          type="text"
+          required
+          placeholder="Jane Doe"
+          value={values.name}
+          onChange={(e) => onChange('name', e.target.value)}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="cf-phone">Phone Number</label>
+        <input
+          id="cf-phone"
+          type="tel"
+          required
+          placeholder="+213 555 000 000"
+          value={values.phone}
+          onChange={(e) => onChange('phone', e.target.value)}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="cf-wilaya">Wilaya</label>
+        <select
+          id="cf-wilaya"
+          required
+          value={values.wilaya}
+          onChange={(e) => onChange('wilaya', e.target.value)}
+          disabled={wilayaLoading || !wilayaOptions.length}
+        >
+          <option value="" disabled>
+            {wilayaLoading
+              ? 'Loading wilayas…'
+              : wilayaOptions.length
+                ? 'Select your wilaya'
+                : 'No wilayas available yet'}
+          </option>
+          {wilayaOptions.map((w) => (
+            <option key={w.id} value={w.wilaya}>
+              {w.wilaya}
+            </option>
+          ))}
+        </select>
+        <a className="delivery-prices-link" href="/delivery-prices" target="_blank" rel="noopener noreferrer">
+          View delivery prices
+        </a>
+      </div>
+
+      <div className="field">
+        <label>Delivery Method</label>
+        <div className="delivery-method-options">
+          {DELIVERY_METHODS.map((method) => (
+            <label
+              key={method.value}
+              className={`delivery-method-option${values.deliveryMethod === method.value ? ' active' : ''}`}
+            >
+              <input
+                type="radio"
+                name="deliveryMethod"
+                value={method.value}
+                checked={values.deliveryMethod === method.value}
+                onChange={() => onChange('deliveryMethod', method.value)}
+              />
+              {method.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <Button type="submit" variant="primary" style={{ width: '100%', marginTop: 8 }} disabled={submitting}>
+        {submitting ? 'Placing Order…' : 'Confirm Order'}
+      </Button>
+    </form>
+  );
+}

@@ -1,0 +1,26 @@
+.avail {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+}
+.avail .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #1f9d55;
+}
+.avail.out .dot {
+  background: var(--gray-400);
+}
+.avail.out {
+  color: var(--gray-600);
+}
+.avail.low .dot {
+  background: var(--ink);
+  animation: pulseDot 1.4s infinite;
+}

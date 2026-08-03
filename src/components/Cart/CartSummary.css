@@ -1,0 +1,30 @@
+.cart-summary {
+  background: var(--paper-soft);
+  padding: 36px 32px;
+  position: sticky;
+  top: 100px;
+}
+.cart-summary h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+.sum-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--gray-600);
+  padding: 9px 0;
+}
+.sum-row.total {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 16px;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 15px;
+}
+.sum-row.total span:last-child {
+  font-family: var(--font-mono);
+}

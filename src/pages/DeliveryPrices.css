@@ -1,0 +1,88 @@
+.delivery-head {
+  padding: 150px 0 20px;
+  position: relative;
+}
+.delivery-intro {
+  margin-top: 16px;
+  color: var(--gray-600);
+  font-weight: 300;
+  max-width: 56ch;
+  line-height: 1.7;
+}
+.delivery-body {
+  padding: 40px 0 120px;
+}
+.delivery-table-wrap {
+  border-top: 1px solid var(--line);
+}
+.delivery-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.delivery-table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray-600);
+  padding: 18px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.delivery-table td {
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.delivery-table td:first-child,
+.delivery-table th:first-child {
+  padding-left: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+.delivery-table td:not(:first-child),
+.delivery-table th:not(:first-child) {
+  font-family: var(--font-mono);
+}
+.delivery-table tbody tr {
+  transition: background 0.2s;
+}
+.delivery-table tbody tr:hover {
+  background: var(--paper-soft);
+}
+
+/* Stacked card layout on small screens — same data, no horizontal scroll needed. */
+@media (max-width: 640px) {
+  .delivery-table thead {
+    display: none;
+  }
+  .delivery-table,
+  .delivery-table tbody,
+  .delivery-table tr,
+  .delivery-table td {
+    display: block;
+    width: 100%;
+  }
+  .delivery-table tr {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .delivery-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: none;
+    padding: 6px 0;
+  }
+  .delivery-table td::before {
+    content: attr(data-label);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gray-600);
+  }
+  .delivery-table td:first-child {
+    font-size: 16px;
+  }
+}

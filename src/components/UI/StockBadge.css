@@ -1,0 +1,31 @@
+.stock-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 9px;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+}
+.stock-badge.out {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.stock-badge.low {
+  background: var(--paper);
+  color: var(--ink);
+}
+.stock-badge.low::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ink);
+  margin-right: 5px;
+  animation: pulseDot 1.4s infinite;
+}

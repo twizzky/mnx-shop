@@ -1,0 +1,11 @@
+.blob {
+  position: absolute;
+  fill: var(--ink);
+  pointer-events: none;
+}
+.blob.o1 {
+  opacity: 0.05;
+}
+.blob.o2 {
+  opacity: 0.035;
+}

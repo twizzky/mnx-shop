@@ -1,0 +1,9 @@
+.squiggle-swirl {
+  position: absolute;
+  stroke: currentColor;
+  color: var(--ink);
+  fill: none;
+  pointer-events: none;
+  opacity: 0.05;
+  animation: swirlDrift 18s ease-in-out infinite;
+}

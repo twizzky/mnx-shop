@@ -1,0 +1,10 @@
+.empty-cart {
+  text-align: center;
+  padding: 100px 0;
+  position: relative;
+}
+.empty-cart p {
+  color: var(--gray-600);
+  margin: 16px 0 28px;
+  font-weight: 300;
+}

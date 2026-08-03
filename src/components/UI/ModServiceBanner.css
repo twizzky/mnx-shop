@@ -1,0 +1,44 @@
+.mod-service {
+  background: var(--ink);
+  color: var(--paper);
+  overflow: hidden;
+  position: relative;
+}
+.mod-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 40px;
+  align-items: center;
+}
+.mod-grid h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(24px, 3.6vw, 38px);
+  margin: 14px 0 18px;
+  max-width: 14ch;
+}
+.mod-grid p {
+  color: var(--gray-400);
+  font-weight: 300;
+  max-width: 50ch;
+  line-height: 1.75;
+  margin-bottom: 0;
+}
+.mod-service .eyebrow {
+  color: var(--gray-400);
+}
+.mod-service .btn-primary {
+  background: var(--paper);
+  color: var(--ink);
+}
+.mod-service .btn-primary:hover {
+  box-shadow: 0 14px 24px -12px rgba(255, 255, 255, 0.25);
+}
+@media (max-width: 760px) {
+  .mod-grid {
+    grid-template-columns: 1fr;
+  }
+  .mod-grid .btn {
+    width: 100%;
+  }
+}

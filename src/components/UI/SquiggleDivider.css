@@ -1,0 +1,15 @@
+.wavy-divider {
+  width: 100%;
+  display: block;
+}
+.wavy-divider path {
+  fill: none;
+  stroke: var(--ink);
+}
+.squiggle-divider {
+  padding: 6px 0;
+  overflow: hidden;
+}
+.squiggle-divider.dense .wavy-divider {
+  height: 70px;
+}

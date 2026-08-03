@@ -1,0 +1,35 @@
+.co-summary {
+  background: var(--paper-soft);
+  padding: 32px;
+}
+.co-summary h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 16px;
+}
+.co-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.co-line .n {
+  color: var(--gray-600);
+}
+.co-line .p {
+  font-family: var(--font-mono);
+}
+.co-line--total {
+  border-bottom: none;
+  font-weight: 600;
+  padding-top: 18px;
+}
+.co-empty {
+  color: var(--gray-600);
+  font-weight: 300;
+}
+.co-empty a {
+  text-decoration: underline;
+}
