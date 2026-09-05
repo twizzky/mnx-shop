@@ -8,6 +8,8 @@ import './CheckoutForm.css';
  * also drives the live price breakdown shown in OrderSummary.
  */
 export default function CheckoutForm({ values, onChange, onSubmit, submitting, wilayaOptions, wilayaLoading }) {
+  const isDoorstep = values.deliveryMethod === 'homedelivery';
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit();
@@ -67,6 +69,18 @@ export default function CheckoutForm({ values, onChange, onSubmit, submitting, w
       </div>
 
       <div className="field">
+        <label htmlFor="cf-commune">Commune</label>
+        <input
+          id="cf-commune"
+          type="text"
+          required
+          placeholder="e.g. Bab Ezzouar"
+          value={values.commune}
+          onChange={(e) => onChange('commune', e.target.value)}
+        />
+      </div>
+
+      <div className="field">
         <label>Delivery Method</label>
         <div className="delivery-method-options">
           {DELIVERY_METHODS.map((method) => (
@@ -86,6 +100,21 @@ export default function CheckoutForm({ values, onChange, onSubmit, submitting, w
           ))}
         </div>
       </div>
+
+      {/* Only needed for doorstep delivery — a stopdesk pickup only
+          needs the wilaya + commune to route to the right desk. */}
+      {isDoorstep && (
+        <div className="field">
+          <label htmlFor="cf-address">Street Address</label>
+          <textarea
+            id="cf-address"
+            required={isDoorstep}
+            placeholder="Building, street, landmark…"
+            value={values.address}
+            onChange={(e) => onChange('address', e.target.value)}
+          />
+        </div>
+      )}
 
       <Button type="submit" variant="primary" style={{ width: '100%', marginTop: 8 }} disabled={submitting}>
         {submitting ? 'Placing Order…' : 'Confirm Order'}

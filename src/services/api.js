@@ -51,7 +51,7 @@ export async function fetchProducts() {
 
 /**
  * Submits an order to Supabase: one row in `orders` plus one row per
- * cart line in `order_items`. Returns { success, error }.
+ * cart line in `order_items`. Returns { success, error, orderId }.
  * If Supabase isn't configured, resolves successfully so the
  * checkout flow can still be previewed locally.
  */
@@ -60,6 +60,8 @@ export async function submitOrder({
   name,
   phone,
   wilaya,
+  commune,
+  address,
   deliveryMethod,
   deliveryPrice,
   subtotal,
@@ -68,7 +70,7 @@ export async function submitOrder({
   lineItems,
 }) {
   if (!supabase) {
-    return { success: true, error: null };
+    return { success: true, error: null, orderId: null };
   }
 
   const { data: orderRow, error: orderError } = await supabase
@@ -79,6 +81,8 @@ export async function submitOrder({
         customer_name: name,
         phone,
         wilaya,
+        commune,
+        address: address || null,
         delivery_method: deliveryMethod,
         delivery_price: deliveryPrice,
         subtotal,
@@ -92,7 +96,7 @@ export async function submitOrder({
 
   if (orderError) {
     console.error(orderError);
-    return { success: false, error: orderError };
+    return { success: false, error: orderError, orderId: null };
   }
 
   // Structured line items, one row per product — used for reporting/
@@ -111,5 +115,5 @@ export async function submitOrder({
     console.error('Order saved, but failed to save order_items:', itemsError);
   }
 
-  return { success: true, error: null };
+  return { success: true, error: null, orderId: orderRow.id };
 }

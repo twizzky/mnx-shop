@@ -3,6 +3,7 @@ import { useCart } from '../hooks/useCart';
 import { useToast } from '../hooks/useToast';
 import { useDelivery } from '../hooks/useDelivery';
 import { submitOrder as submitOrderRequest } from '../services/api';
+import { createShipment } from '../services/ecotrackApi';
 import { fmt } from '../utils/format';
 import { buildWhatsAppLink, DELIVERY_METHODS } from '../utils/constants';
 import CheckoutForm from '../components/Checkout/CheckoutForm';
@@ -15,7 +16,14 @@ function generateOrderNumber() {
   return `MNX-${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
-const INITIAL_FORM = { name: '', phone: '', wilaya: '', deliveryMethod: DELIVERY_METHODS[0].value };
+const INITIAL_FORM = {
+  name: '',
+  phone: '',
+  wilaya: '',
+  commune: '',
+  address: '',
+  deliveryMethod: DELIVERY_METHODS[0].value,
+};
 
 export default function Checkout() {
   const { lineItems, cartTotal, clearCart } = useCart();
@@ -24,7 +32,7 @@ export default function Checkout() {
 
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
-  const [confirmedOrder, setConfirmedOrder] = useState(null); // { orderNumber } | null
+  const [confirmedOrder, setConfirmedOrder] = useState(null); // { orderNumber, trackingNumber } | null
 
   const handleFieldChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -43,13 +51,19 @@ export default function Checkout() {
     [form.deliveryMethod]
   );
 
+  const isDoorstep = form.deliveryMethod === 'homedelivery';
+
   const handleSubmit = async () => {
     if (!lineItems.length) {
       showToast('Your cart is empty');
       return;
     }
-    if (!form.name.trim() || !form.phone.trim() || !form.wilaya) {
+    if (!form.name.trim() || !form.phone.trim() || !form.wilaya || !form.commune.trim()) {
       showToast('Please fill in every field');
+      return;
+    }
+    if (isDoorstep && !form.address.trim()) {
+      showToast('Please add a street address for doorstep delivery');
       return;
     }
     if (deliveryPrice === null) {
@@ -64,11 +78,13 @@ export default function Checkout() {
       .join('\n');
     const total = cartTotal + deliveryPrice;
 
-    const { success } = await submitOrderRequest({
+    const { success, orderId } = await submitOrderRequest({
       orderNumber,
       name: form.name.trim(),
       phone: form.phone.trim(),
       wilaya: form.wilaya,
+      commune: form.commune.trim(),
+      address: isDoorstep ? form.address.trim() : null,
       deliveryMethod: deliveryLabel,
       deliveryPrice,
       subtotal: cartTotal,
@@ -84,9 +100,35 @@ export default function Checkout() {
       return;
     }
 
-    setConfirmedOrder({ orderNumber });
+    setConfirmedOrder({ orderNumber, trackingNumber: null });
     clearCart();
     setForm(INITIAL_FORM);
+
+    // Best-effort: the order is already safely saved above regardless
+    // of what happens here. If Ecotrack isn't configured yet, or the
+    // courier's system is briefly unavailable, the customer still sees
+    // a normal confirmation — you can always create the shipment
+    // manually from your courier's dashboard using the order details.
+    if (orderId) {
+      const wilayaRow = deliveryPrices.find((d) => d.wilaya === form.wilaya);
+      createShipment({
+        orderId,
+        orderNumber,
+        fullName: form.name.trim(),
+        phone: form.phone.trim(),
+        wilaya: form.wilaya,
+        wilayaCode: wilayaRow?.wilaya_code,
+        commune: form.commune.trim(),
+        address: isDoorstep ? form.address.trim() : null,
+        stopDesk: !isDoorstep,
+        amount: total,
+        productSummary: itemLines,
+      }).then(({ success: shipped, trackingNumber }) => {
+        if (shipped && trackingNumber) {
+          setConfirmedOrder((prev) => (prev ? { ...prev, trackingNumber } : prev));
+        }
+      });
+    }
   };
 
   if (confirmedOrder) {
@@ -96,6 +138,7 @@ export default function Checkout() {
         <div className="wrap checkout-wrap">
           <ConfirmScreen
             orderNumber={confirmedOrder.orderNumber}
+            trackingNumber={confirmedOrder.trackingNumber}
             whatsappLink={whatsappLink}
             onBackToHome={() => setConfirmedOrder(null)}
           />

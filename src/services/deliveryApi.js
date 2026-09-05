@@ -12,7 +12,7 @@ export async function fetchDeliveryPrices() {
   try {
     const { data, error } = await supabase
       .from('delivery_prices')
-      .select('id, wilaya, home_delivery_price, stopdesk_price')
+      .select('id, wilaya, wilaya_code, home_delivery_price, stopdesk_price')
       .order('wilaya', { ascending: true });
 
     if (error) throw error;

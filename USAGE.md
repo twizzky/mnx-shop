@@ -206,9 +206,10 @@ Products without `image_url`/`image_urls` fall back to auto-generated placeholde
 ### 5.1 The flow
 
 1. A customer adds items to their cart (held in memory in their browser — nothing is saved until checkout).
-2. At Checkout, they fill in name, phone, pick their **wilaya**, and choose **Doorstep** or **Stopdesk** delivery. The moment both are selected, the order summary updates instantly to show Subtotal, Delivery, and Total — the delivery price comes straight from the `delivery_prices` table, never hardcoded.
+2. At Checkout, they fill in name, phone, pick their **wilaya**, enter their **commune**, and choose **Doorstep** or **Stopdesk** delivery — doorstep additionally asks for a street address. The moment wilaya and delivery method are both selected, the order summary updates instantly to show Subtotal, Delivery, and Total — the delivery price comes straight from the `delivery_prices` table, never hardcoded.
 3. The site writes one row to `orders`, plus one row per cart item to `order_items`, and waits for confirmation before showing the success screen — if the write fails (bad connection, etc.), the customer sees an error and can retry instead of silently losing the order.
 4. On success, the cart clears and a confirmation screen shows an order reference (e.g. `MNX-4821`), plus an optional **"Message Us on WhatsApp"** button the customer can tap if they want to reach out directly. WhatsApp is never opened automatically — it's their choice.
+5. If Ecotrack shipment creation is configured (§7 below), a real courier shipment is created in the background right after, and a **Courier Tracking** number appears on the confirmation screen a moment later. This step is optional and never blocks the order itself.
 
 ### 5.2 Where you see orders
 
@@ -218,13 +219,14 @@ Supabase dashboard → **Table Editor → orders**. Each row has:
 |---|---|
 | `order_number` | The reference shown to the customer, e.g. `MNX-4821` |
 | `customer_name`, `phone` | What they entered at checkout |
-| `wilaya`, `delivery_method`, `delivery_price` | Their delivery selection and its price at the time of order |
+| `wilaya`, `commune`, `delivery_method`, `delivery_price` | Their delivery selection and its price at the time of order |
+| `address` | Street address — populated for doorstep orders, blank for stopdesk |
 | `subtotal` | Product total before delivery |
 | `total` | `subtotal + delivery_price` |
 | `items` | Plain-text list of what they ordered, with line totals — quick to scan without joining tables |
 | `status` | Defaults to `pending` — update this yourself as you process the order |
+| `tracking_number` | Set automatically once a courier shipment is created (§7) — blank otherwise |
 | `created_at` | Timestamp, automatic |
-| `address` | Legacy field from before wilaya-based checkout existed — left blank on new orders |
 
 For a structured, per-product breakdown of any order (useful for totals/reporting later), check **Table Editor → order_items** and filter by `order_id`.
 
@@ -277,3 +279,15 @@ Supabase dashboard → **Table Editor → delivery_prices** → edit `home_deliv
 ### 7.4 Adding or removing a wilaya
 
 Add or delete rows the same way, directly in Table Editor. The `wilaya` column is what's shown in the checkout dropdown, so keep the spelling consistent if you're editing an existing one (it's also what gets stored on each order).
+
+---
+
+## 8. Automatic courier shipment creation (Ecotrack)
+
+Optional, and off by default. When set up, placing an order also creates a real shipment with your courier automatically, giving it a tracking number without you touching their dashboard.
+
+**This isn't a `.env` setting** — a courier API token is a real secret, and anything in `.env` prefixed `VITE_` ends up inside the JavaScript sent to every visitor's browser. Instead, it's configured as a **Supabase Edge Function secret**, which only ever runs on Supabase's servers.
+
+Full setup — getting your token from your courier, deploying the function, and setting the secrets — is in **`SUPABASE_SETUP.md` §5**.
+
+Once it's set up: every order still saves to `orders`/`order_items` exactly as before, and shipment creation happens as a best-effort extra step right after. If it's not configured, or the courier's system is briefly down, checkout works exactly as it does today — nothing about the core order flow depends on this being set up.

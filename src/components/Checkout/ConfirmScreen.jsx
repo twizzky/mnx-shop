@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import Button from '../UI/Button';
 import './ConfirmScreen.css';
 
-export default function ConfirmScreen({ orderNumber, whatsappLink, onBackToHome }) {
+export default function ConfirmScreen({ orderNumber, trackingNumber, whatsappLink, onBackToHome }) {
   return (
     <div className="confirm-screen show">
       <div className="confirm-icon">
@@ -13,6 +13,7 @@ export default function ConfirmScreen({ orderNumber, whatsappLink, onBackToHome 
       <h2>Order confirmed</h2>
       <p>Thank you — your order has been logged with MNX Accessories. We&apos;ll reach out to confirm delivery details.</p>
       <p className="order-id">Order Reference — {orderNumber}</p>
+      {trackingNumber && <p className="order-id">Courier Tracking — {trackingNumber}</p>}
       <div className="confirm-actions">
         <Button as={Link} to="/" variant="primary" onClick={onBackToHome}>
           Back to Home
