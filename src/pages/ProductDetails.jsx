@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { fmt, productImages } from '../utils/format';
 import { stockStatus } from '../utils/stock';
@@ -18,7 +18,18 @@ export default function ProductDetails() {
 
   const [qty, setQty] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
+  const [addedOnce, setAddedOnce] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
+  const touchStartX = useRef(null);
+
+  // Reset per-product state when navigating between products.
+  useEffect(() => {
+    setQty(1);
+    setJustAdded(false);
+    setAddedOnce(false);
+    setActiveImage(0);
+    touchStartX.current = null;
+  }, [id]);
 
   if (loading) return null;
 
@@ -38,7 +49,25 @@ export default function ProductDetails() {
     addItem(product.id, qty);
     showToast(`${product.name} added to cart`);
     setJustAdded(true);
+    setAddedOnce(true);
     setTimeout(() => setJustAdded(false), 1100);
+  };
+
+  const goImage = (dir) => {
+    setActiveImage((i) => (i + dir + images.length) % images.length);
+  };
+
+  // Finger swipe on the main picture — horizontal swipe flips through
+  // the gallery (wraps around), vertical scroll stays untouched.
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current == null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < 40 || images.length < 2) return;
+    goImage(dx < 0 ? 1 : -1);
   };
 
   return (
@@ -50,7 +79,7 @@ export default function ProductDetails() {
 
         <div className="pd-grid">
           <div>
-            <div className="pd-main-img">
+            <div className="pd-main-img" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
               <img src={images[activeImage]} alt={product.name} />
             </div>
             {images.length > 1 && (
@@ -93,6 +122,11 @@ export default function ProductDetails() {
               <span>{canBuy ? 'Add to Cart' : 'Sold Out'}</span>
               <span className="check">Added ✓</span>
             </Button>
+            {addedOnce && canBuy && (
+              <Button as={Link} to="/cart" variant="outline" className="pd-goto">
+                Go to Cart &rarr;
+              </Button>
+            )}
 
             <div className="pd-meta">
               Ships within 2–4 days · DM us for bulk orders

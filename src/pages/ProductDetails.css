@@ -33,6 +33,8 @@
   background: var(--gray-100);
   overflow: hidden;
   margin-bottom: 12px;
+  /* horizontal swipes drive the gallery, vertical stays page scroll */
+  touch-action: pan-y;
 }
 .pd-main-img img {
   width: 100%;
@@ -110,6 +112,11 @@
 }
 .pd-add.added .check {
   transform: translateY(0);
+}
+.pd-goto {
+  width: 100%;
+  max-width: 340px;
+  margin-top: 12px;
 }
 .pd-meta {
   margin-top: 36px;

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useCart } from '../hooks/useCart';
 import { useToast } from '../hooks/useToast';
 import { useDelivery } from '../hooks/useDelivery';
+import { useProducts } from '../hooks/useProducts';
 import { submitOrder as submitOrderRequest } from '../services/api';
 import { createShipment, fetchCommunes } from '../services/andersonApi';
 import { fmt } from '../utils/format';
@@ -9,6 +10,7 @@ import { buildWhatsAppLink, DELIVERY_METHODS } from '../utils/constants';
 import CheckoutForm from '../components/Checkout/CheckoutForm';
 import OrderSummary from '../components/Checkout/OrderSummary';
 import ConfirmScreen from '../components/Checkout/ConfirmScreen';
+import ProductGrid from '../components/ProductGrid/ProductGrid';
 import './Checkout.css';
 
 /** Generates a short human-friendly order reference, e.g. "MNX-4821". */
@@ -65,6 +67,7 @@ export default function Checkout() {
   const { lineItems, cartTotal, clearCart } = useCart();
   const { showToast } = useToast();
   const { deliveryPrices, loading: deliveryLoading, findPrice } = useDelivery();
+  const { products } = useProducts();
 
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -146,6 +149,13 @@ export default function Checkout() {
   );
 
   const isDoorstep = form.deliveryMethod === 'homedelivery';
+
+  // Post-checkout suggestions: featured first, in-stock preferred.
+  const suggested = useMemo(() => {
+    const pool = products.filter((p) => Number(p.stock) > 0);
+    const base = pool.length ? pool : products;
+    return [...base.filter((p) => p.featured), ...base.filter((p) => !p.featured)].slice(0, 4);
+  }, [products]);
 
   const handleSubmit = async () => {
     if (!lineItems.length) {
@@ -248,6 +258,13 @@ export default function Checkout() {
             whatsappLink={whatsappLink}
             onBackToHome={() => setConfirmedOrder(null)}
           />
+          {suggested.length > 0 && (
+            <div className="checkout-suggested">
+              <span className="eyebrow">Keep Exploring</span>
+              <h2>You may also like</h2>
+              <ProductGrid products={suggested} />
+            </div>
+          )}
         </div>
       </section>
     );

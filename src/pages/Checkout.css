@@ -12,3 +12,13 @@
     gap: 40px;
   }
 }
+.checkout-suggested {
+  margin-top: 88px;
+}
+.checkout-suggested h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(22px, 3vw, 30px);
+  letter-spacing: -0.01em;
+  margin: 12px 0 36px;
+}
