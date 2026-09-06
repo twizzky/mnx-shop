@@ -83,18 +83,6 @@ export default function CheckoutForm({ values, onChange, onSubmit, submitting, w
       </div>
 
       <div className="field">
-        <label htmlFor="cf-commune">Commune</label>
-        <input
-          id="cf-commune"
-          type="text"
-          required
-          placeholder="e.g. Bab Ezzouar"
-          value={values.commune}
-          onChange={(e) => onChange('commune', e.target.value)}
-        />
-      </div>
-
-      <div className="field">
         <label>Delivery Method</label>
         <div className="delivery-method-options">
           {DELIVERY_METHODS.map((method) => (
@@ -116,7 +104,7 @@ export default function CheckoutForm({ values, onChange, onSubmit, submitting, w
       </div>
 
       {/* Only needed for doorstep delivery — a stopdesk pickup only
-          needs the wilaya + commune to route to the right desk. */}
+          needs the wilaya to route to the right desk. */}
       {isDoorstep && (
         <div className="field">
           <label htmlFor="cf-address">Street Address</label>

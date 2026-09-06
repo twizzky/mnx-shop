@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
     productSummary?: string;
   };
 
-  if (!orderId || !fullName || !phone || !wilaya || !commune) {
+  if (!orderId || !fullName || !phone || !wilaya) {
     return jsonResponse({ success: false, error: 'Missing required shipment fields.' }, 400);
   }
 
@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
             fullName,
             phone,
             wilayaCode,
-            communeName: commune,
+            communeName: commune || wilaya,
             address: address || undefined,
           },
           deliveryType: stopDesk ? 'stopdesk' : 'home',

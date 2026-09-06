@@ -20,7 +20,6 @@ const INITIAL_FORM = {
   name: '',
   phone: '',
   wilaya: '',
-  commune: '',
   address: '',
   deliveryMethod: DELIVERY_METHODS[0].value,
   stopdeskLocation: '',
@@ -68,7 +67,7 @@ export default function Checkout() {
       showToast('Your cart is empty');
       return;
     }
-    if (!form.name.trim() || !form.phone.trim() || !form.wilaya || !form.commune.trim()) {
+    if (!form.name.trim() || !form.phone.trim() || !form.wilaya) {
       showToast('Please fill in every field');
       return;
     }
@@ -97,7 +96,6 @@ export default function Checkout() {
       name: form.name.trim(),
       phone: form.phone.trim(),
       wilaya: form.wilaya,
-      commune: form.commune.trim(),
       address: isDoorstep ? form.address.trim() : null,
       stopdeskLocation: !isDoorstep ? form.stopdeskLocation : null,
       notes: form.notes.trim() || null,
@@ -134,7 +132,6 @@ export default function Checkout() {
         phone: form.phone.trim(),
         wilaya: form.wilaya,
         wilayaCode: wilayaRow?.wilaya_code,
-        commune: form.commune.trim(),
         address: isDoorstep ? form.address.trim() : null,
         stopDesk: !isDoorstep,
         amount: total,
