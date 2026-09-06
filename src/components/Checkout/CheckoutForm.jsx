@@ -43,7 +43,6 @@ export default function CheckoutForm({
       ? deskCommunes
       : communeOptions
     : communeOptions;
-  const communeLoadFailed = !!communesError || (!communesLoading && !!values.wilaya && !communeOptions.length);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -105,41 +104,32 @@ export default function CheckoutForm({
 
       <div className="field">
         <label htmlFor="cf-commune">Commune</label>
-        {communeLoadFailed ? (
-          <input
-            id="cf-commune"
-            type="text"
-            required
-            placeholder="e.g. Bab Ezzouar"
-            value={values.commune}
-            onChange={(e) => onChange('commune', e.target.value)}
-          />
-        ) : (
-          <select
-            id="cf-commune"
-            required
-            value={values.commune}
-            onChange={(e) => onChange('commune', e.target.value)}
-            disabled={!values.wilaya || communesLoading}
-          >
-            <option value="" disabled>
-              {!values.wilaya
-                ? 'Select a wilaya first'
-                : communesLoading
-                  ? 'Loading communes…'
-                  : communeSelectOptions.length
-                    ? isStopdesk
-                      ? 'Select the desk commune'
-                      : 'Select your commune'
+        <select
+          id="cf-commune"
+          required
+          value={values.commune}
+          onChange={(e) => onChange('commune', e.target.value)}
+          disabled={!values.wilaya || communesLoading || !communeSelectOptions.length}
+        >
+          <option value="" disabled>
+            {!values.wilaya
+              ? 'Select a wilaya first'
+              : communesLoading
+                ? 'Loading communes…'
+                : communeSelectOptions.length
+                  ? isStopdesk
+                    ? 'Select the desk commune'
+                    : 'Select your commune'
+                  : communesError
+                    ? 'Could not load communes — try again'
                     : 'No communes found'}
+          </option>
+          {communeSelectOptions.map((c) => (
+            <option key={c.name} value={c.name}>
+              {c.name}
             </option>
-            {communeSelectOptions.map((c) => (
-              <option key={c.name} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        )}
+          ))}
+        </select>
       </div>
 
       <div className="field">
