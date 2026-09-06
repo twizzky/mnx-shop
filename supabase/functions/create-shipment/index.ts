@@ -2,35 +2,31 @@
 //
 // Server-side only. Deploy with: supabase functions deploy create-shipment
 // Configure secrets with:
-//   supabase secrets set ECOTRACK_TOKEN=your_courier_token
-//   supabase secrets set ECOTRACK_BASE_URL=https://your-courier.ecotrack.dz
+//   supabase secrets set ECOTRACK_TOKEN=your_anderson_api_token
+//   supabase secrets set ECOTRACK_BASE_URL=https://your-anderson-dashboard-domain
+// (no trailing slash — the exact domain of your Anderson Ecotrack login
+// page, which is where your api_token is valid).
 //
 // Why this exists as an Edge Function instead of a client-side call:
-// Ecotrack's bearer token is a real secret that can create shipments
+// Anderson's api_token is a real secret that can create shipments
 // (and cost money / create fraudulent parcels) on your courier account.
 // It must never reach the browser. This function holds it as a
 // Supabase secret, accepts an order's details from the client, calls
-// the shipping gateway on the server side, and writes the resulting
-// tracking number back onto the order using the service-role key
-// (which also never reaches the browser).
+// Anderson's Ecotrack API (POST {base}/api/v1/create/order) on the
+// server side, and writes the resulting tracking number back onto the
+// order using the service-role key (which also never reaches the browser).
 //
-// Ecotrack is a white-label platform used by 80+ Algerian couriers
-// (DHD, Conexlog, MSM Go, and others), each with their own base URL
-// and token — there's no single public "Ecotrack API" to call. This
-// function talks to your specific courier through freeship.dzbuild.com,
-// a free, documented, no-signup gateway that normalizes Ecotrack (and
-// several other Algerian couriers) behind one stable request shape.
-// If your courier ever hands you their raw Ecotrack endpoint docs
-// directly, you can point SHIPPING_GATEWAY_URL at your own equivalent
-// and adjust the request body below to match.
+// Anderson's API replies { "success": true, "tracking": "..." } on success,
+// HTTP 422 with { message, errors } on validation failure, or
+// { "success": false, "error", "message" } for business errors
+// (e.g. no delivery for the selected wilaya).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const ECOTRACK_TOKEN = Deno.env.get('ECOTRACK_TOKEN');
-const ECOTRACK_BASE_URL = Deno.env.get('ECOTRACK_BASE_URL');
-const SHIPPING_GATEWAY_URL = Deno.env.get('SHIPPING_GATEWAY_URL') || 'https://freeship.dzbuild.com';
+const ECOTRACK_BASE_URL = (Deno.env.get('ECOTRACK_BASE_URL') || '').replace(/\/+$/, '');
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -44,6 +40,41 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
+/**
+ * Anderson expects a 9–10 digit local mobile number. Accepts the shapes
+ * customers actually type (+213 5xx, 00213 5xx, 0xxxxxxxxxx, xxxxxxxxx)
+ * and returns the normalized 0xxxxxxxxxx form, or null if unusable.
+ */
+function normalizePhone(raw: string): string | null {
+  const digits = (raw || '').replace(/\D/g, '');
+  let local = digits;
+  if (/^00213[567]\d{8}$/.test(digits)) {
+    local = '0' + digits.slice(5);
+  } else if (/^213[567]\d{8}$/.test(digits)) {
+    local = '0' + digits.slice(3);
+  } else if (/^[567]\d{8}$/.test(digits)) {
+    local = '0' + digits;
+  }
+  return /^\d{9,10}$/.test(local) ? local : null;
+}
+
+/**
+ * Turns Anderson's failure shapes into one readable message:
+ * - 422 validation: { message, errors: { field: [...] } }
+ * - business error: { success: false, error, message }
+ */
+function describeAndersonError(data: Record<string, unknown> | null): string {
+  if (!data) return 'The courier did not answer.';
+  const errors = data.errors as Record<string, string[]> | undefined;
+  if (errors && typeof errors === 'object') {
+    const flat = Object.values(errors).flat().filter(Boolean).join(' ');
+    if (flat) return flat;
+  }
+  const message = data.message;
+  if (typeof message === 'string' && message) return message;
+  return 'The courier rejected the request.';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS });
@@ -53,7 +84,7 @@ Deno.serve(async (req) => {
     // Not configured yet — fail softly. The order itself was already
     // saved before this function is ever called (see Checkout.jsx),
     // so this just means no automatic shipment was created.
-    return jsonResponse({ success: false, error: 'Ecotrack is not configured on the server yet.' });
+    return jsonResponse({ success: false, error: 'Courier is not configured on the server yet.' });
   }
 
   let body: Record<string, unknown>;
@@ -75,6 +106,7 @@ Deno.serve(async (req) => {
     stopDesk,
     amount,
     productSummary,
+    notes,
   } = body as {
     orderId?: string;
     orderNumber?: string;
@@ -87,54 +119,65 @@ Deno.serve(async (req) => {
     stopDesk?: boolean;
     amount?: number;
     productSummary?: string;
+    notes?: string;
   };
 
-  if (!orderId || !fullName || !phone || !wilaya) {
+  if (!orderId || !fullName || !phone || !wilaya || !wilayaCode || !commune || amount == null) {
     return jsonResponse({ success: false, error: 'Missing required shipment fields.' }, 400);
   }
 
-  try {
-    // Ecotrack caps the item description at 255 characters.
-    const productList = (productSummary || '').slice(0, 255);
+  // Anderson wants a 9–10 digit local number, but customers type
+  // +213 ..., 00213 ..., or 9 digits without the trunk 0 — normalize.
+  const telephone = normalizePhone(phone);
+  if (!telephone) {
+    return jsonResponse({ success: false, error: 'Invalid phone number.' }, 400);
+  }
 
-    // Request shape follows freeship.dzbuild.com's documented examples
-    // as of when this was written. Gateways evolve — if a real test
-    // order comes back with an error here, check their current docs
-    // at https://freeship.dzbuild.com and adjust the body below to match.
-    const gatewayRes = await fetch(`${SHIPPING_GATEWAY_URL}/v1/orders`, {
+  // adresse is required by Anderson even for stopdesk — the client sends
+  // the chosen stopdesk label in that case (see Checkout.jsx).
+  const adresse = (address || '').trim();
+  if (!adresse) {
+    return jsonResponse({ success: false, error: 'Missing delivery address.' }, 400);
+  }
+
+  try {
+    // Anderson caps free-text fields at 255 characters.
+    const productList = (productSummary || '').slice(0, 255);
+    const remarque = (notes || '').slice(0, 255);
+
+    // Parameter shape follows Anderson's ECOTRACK API docs for
+    // "Ajouter une commande": POST with query params, type=1 (Livraison),
+    // stop_desk 0 = home, 1 = stopdesk.
+    const params = new URLSearchParams({
+      api_token: ECOTRACK_TOKEN,
+      reference: orderNumber || orderId,
+      nom_client: fullName,
+      telephone,
+      adresse,
+      commune,
+      code_wilaya: String(wilayaCode),
+      montant: String(Math.round(Number(amount))),
+      type: '1',
+      stop_desk: stopDesk ? '1' : '0',
+      produit: productList,
+    });
+    if (remarque) params.set('remarque', remarque);
+
+    const andersonRes = await fetch(`${ECOTRACK_BASE_URL}/api/v1/create/order?${params.toString()}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        courier: 'ecotrack',
-        credentials: { token: ECOTRACK_TOKEN },
-        options: { baseUrl: ECOTRACK_BASE_URL },
-        order: {
-          reference: orderNumber,
-          recipient: {
-            fullName,
-            phone,
-            wilayaCode,
-            communeName: commune || wilaya,
-            address: address || undefined,
-          },
-          deliveryType: stopDesk ? 'stopdesk' : 'home',
-          productList,
-          codAmount: amount,
-        },
-      }),
     });
 
-    const gatewayData = await gatewayRes.json().catch(() => null);
+    const andersonData = await andersonRes.json().catch(() => null);
 
-    if (!gatewayRes.ok || !gatewayData?.trackingNumber) {
-      console.error('Shipping gateway error:', gatewayRes.status, gatewayData);
+    if (!andersonData?.success || !andersonData?.tracking) {
+      console.error('Anderson API error:', andersonRes.status, andersonData);
       return jsonResponse({
         success: false,
-        error: gatewayData?.error || 'The shipping gateway rejected the request.',
+        error: describeAndersonError(andersonData),
       });
     }
 
-    const trackingNumber: string = gatewayData.trackingNumber;
+    const trackingNumber: string = andersonData.tracking;
 
     // Service-role client bypasses RLS — this is the one place allowed
     // to write tracking_number, since customers never have update

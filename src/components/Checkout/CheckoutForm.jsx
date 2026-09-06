@@ -13,7 +13,17 @@ function formatStopdeskLabel(loc) {
  * parent (Checkout page), since the wilaya + delivery method selection
  * also drives the live price breakdown shown in OrderSummary.
  */
-export default function CheckoutForm({ values, onChange, onSubmit, submitting, wilayaOptions, wilayaLoading }) {
+export default function CheckoutForm({
+  values,
+  onChange,
+  onSubmit,
+  submitting,
+  wilayaOptions,
+  wilayaLoading,
+  communeOptions = [],
+  communesLoading = false,
+  communesError = null,
+}) {
   const isDoorstep = values.deliveryMethod === 'homedelivery';
   const isStopdesk = values.deliveryMethod === 'stopdesk';
 
@@ -23,6 +33,17 @@ export default function CheckoutForm({ values, onChange, onSubmit, submitting, w
     selectedWilayaCode != null
       ? allLocations.filter((loc) => loc.wilaya_code === selectedWilayaCode)
       : allLocations;
+
+  // Anderson only accepts commune names from their own list. In stopdesk
+  // mode the desk communes come first — or exclusively, when the wilaya
+  // has any; otherwise fall back to the full list so checkout never blocks.
+  const deskCommunes = communeOptions.filter((c) => c.hasStopDesk);
+  const communeSelectOptions = isStopdesk
+    ? deskCommunes.length
+      ? deskCommunes
+      : communeOptions
+    : communeOptions;
+  const communeLoadFailed = !!communesError || (!communesLoading && !!values.wilaya && !communeOptions.length);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -80,6 +101,45 @@ export default function CheckoutForm({ values, onChange, onSubmit, submitting, w
         <a className="delivery-prices-link" href="/delivery-prices" target="_blank" rel="noopener noreferrer">
           View delivery prices
         </a>
+      </div>
+
+      <div className="field">
+        <label htmlFor="cf-commune">Commune</label>
+        {communeLoadFailed ? (
+          <input
+            id="cf-commune"
+            type="text"
+            required
+            placeholder="e.g. Bab Ezzouar"
+            value={values.commune}
+            onChange={(e) => onChange('commune', e.target.value)}
+          />
+        ) : (
+          <select
+            id="cf-commune"
+            required
+            value={values.commune}
+            onChange={(e) => onChange('commune', e.target.value)}
+            disabled={!values.wilaya || communesLoading}
+          >
+            <option value="" disabled>
+              {!values.wilaya
+                ? 'Select a wilaya first'
+                : communesLoading
+                  ? 'Loading communes…'
+                  : communeSelectOptions.length
+                    ? isStopdesk
+                      ? 'Select the desk commune'
+                      : 'Select your commune'
+                    : 'No communes found'}
+            </option>
+            {communeSelectOptions.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="field">

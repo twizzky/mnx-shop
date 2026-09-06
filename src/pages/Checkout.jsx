@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useCart } from '../hooks/useCart';
 import { useToast } from '../hooks/useToast';
 import { useDelivery } from '../hooks/useDelivery';
 import { submitOrder as submitOrderRequest } from '../services/api';
-import { createShipment } from '../services/ecotrackApi';
+import { createShipment, fetchCommunes } from '../services/andersonApi';
 import { fmt } from '../utils/format';
 import { buildWhatsAppLink, DELIVERY_METHODS } from '../utils/constants';
 import CheckoutForm from '../components/Checkout/CheckoutForm';
@@ -20,11 +20,46 @@ const INITIAL_FORM = {
   name: '',
   phone: '',
   wilaya: '',
+  commune: '',
   address: '',
   deliveryMethod: DELIVERY_METHODS[0].value,
   stopdeskLocation: '',
   notes: '',
 };
+
+/**
+ * Accent/case-insensitive compare, so a stopdesk city like "AIN M'LILA"
+ * matches Anderson's commune "Ain M'lila".
+ */
+function normalizeName(s) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9 ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Finds the Anderson commune matching a stopdesk label
+ * ("WILAYA - CITY" or "WILAYA (Main Stopdesk)"). Tries the city first,
+ * then falls back to the wilaya itself (main desks usually sit in the
+ * wilaya's eponymous commune).
+ */
+function matchCommuneForDesk(stopdeskLabel, communes) {
+  if (!stopdeskLabel || !communes.length) return '';
+  const dashAt = stopdeskLabel.indexOf(' - ');
+  const city = dashAt >= 0 ? stopdeskLabel.slice(dashAt + 3) : '';
+  const wilaya = dashAt >= 0 ? stopdeskLabel.slice(0, dashAt) : stopdeskLabel.replace(/\s*\(Main Stopdesk\)\s*$/i, '');
+  for (const candidate of [city, wilaya]) {
+    const norm = normalizeName(candidate);
+    if (!norm) continue;
+    const hit = communes.find((c) => normalizeName(c.name) === norm);
+    if (hit) return hit.name;
+  }
+  return '';
+}
 
 export default function Checkout() {
   const { lineItems, cartTotal, clearCart } = useCart();
@@ -34,14 +69,64 @@ export default function Checkout() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState(null); // { orderNumber, trackingNumber } | null
+  const [communes, setCommunes] = useState([]);
+  const [communesLoading, setCommunesLoading] = useState(false);
+  const [communesError, setCommunesError] = useState(null);
+
+  // Official 1–58 code for the selected wilaya — drives both the
+  // Anderson commune list and the shipment creation call.
+  const wilayaCode = useMemo(
+    () => deliveryPrices.find((d) => d.wilaya === form.wilaya)?.wilaya_code ?? null,
+    [deliveryPrices, form.wilaya]
+  );
+
+  // Load Anderson's commune list whenever the wilaya changes. Results are
+  // cached per wilaya inside andersonApi, so this is cheap to re-run.
+  useEffect(() => {
+    if (!wilayaCode) {
+      setCommunes([]);
+      setCommunesError(null);
+      return;
+    }
+    let cancelled = false;
+    setCommunesLoading(true);
+    setCommunesError(null);
+    fetchCommunes(wilayaCode).then(({ success, communes: list, error }) => {
+      if (cancelled) return;
+      setCommunesLoading(false);
+      if (success) {
+        setCommunes(list);
+        // If a stopdesk was already picked, auto-match its commune now
+        // that the list has arrived (unless the user already chose one).
+        setForm((prev) => {
+          if (prev.deliveryMethod !== 'stopdesk' || prev.commune || !prev.stopdeskLocation) return prev;
+          const matched = matchCommuneForDesk(prev.stopdeskLocation, list);
+          return matched ? { ...prev, commune: matched } : prev;
+        });
+      } else {
+        setCommunes([]);
+        setCommunesError(error);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [wilayaCode]);
 
   const handleFieldChange = (field, value) => {
     setForm((prev) => {
       const next = { ...prev, [field]: value };
-      // A stopdesk choice only makes sense for its wilaya + method —
-      // clear it whenever either changes so a stale desk can't be submitted.
+      // A stopdesk/commune choice only makes sense for its wilaya + method —
+      // clear both whenever either changes so a stale value can't be submitted.
       if (field === 'wilaya' || field === 'deliveryMethod') {
         next.stopdeskLocation = '';
+        next.commune = '';
+        return next;
+      }
+      // Picking a stopdesk pre-selects its Anderson commune (the courier
+      // requires the commune name from their own list) — still editable.
+      if (field === 'stopdeskLocation' && prev.deliveryMethod === 'stopdesk') {
+        next.commune = matchCommuneForDesk(value, communes) || '';
       }
       return next;
     });
@@ -71,6 +156,10 @@ export default function Checkout() {
       showToast('Please fill in every field');
       return;
     }
+    if (!form.commune.trim()) {
+      showToast('Please select your commune');
+      return;
+    }
     if (isDoorstep && !form.address.trim()) {
       showToast('Please add a street address for doorstep delivery');
       return;
@@ -96,6 +185,7 @@ export default function Checkout() {
       name: form.name.trim(),
       phone: form.phone.trim(),
       wilaya: form.wilaya,
+      commune: form.commune.trim(),
       address: isDoorstep ? form.address.trim() : null,
       stopdeskLocation: !isDoorstep ? form.stopdeskLocation : null,
       notes: form.notes.trim() || null,
@@ -119,23 +209,26 @@ export default function Checkout() {
     setForm(INITIAL_FORM);
 
     // Best-effort: the order is already safely saved above regardless
-    // of what happens here. If Ecotrack isn't configured yet, or the
-    // courier's system is briefly unavailable, the customer still sees
-    // a normal confirmation — you can always create the shipment
-    // manually from your courier's dashboard using the order details.
+    // of what happens here. If Anderson isn't configured yet, or their
+    // system is briefly unavailable, the customer still sees a normal
+    // confirmation — you can always create the shipment manually from
+    // your Anderson dashboard using the order details.
     if (orderId) {
-      const wilayaRow = deliveryPrices.find((d) => d.wilaya === form.wilaya);
       createShipment({
         orderId,
         orderNumber,
         fullName: form.name.trim(),
         phone: form.phone.trim(),
         wilaya: form.wilaya,
-        wilayaCode: wilayaRow?.wilaya_code,
-        address: isDoorstep ? form.address.trim() : null,
+        wilayaCode,
+        commune: form.commune.trim(),
+        // adresse is required by Anderson even for stopdesk — send the
+        // chosen desk label in that case.
+        address: isDoorstep ? form.address.trim() : form.stopdeskLocation,
         stopDesk: !isDoorstep,
         amount: total,
         productSummary: itemLines,
+        notes: form.notes.trim() || null,
       }).then(({ success: shipped, trackingNumber }) => {
         if (shipped && trackingNumber) {
           setConfirmedOrder((prev) => (prev ? { ...prev, trackingNumber } : prev));
@@ -176,6 +269,9 @@ export default function Checkout() {
               submitting={submitting}
               wilayaOptions={deliveryPrices}
               wilayaLoading={deliveryLoading}
+              communeOptions={communes}
+              communesLoading={communesLoading}
+              communesError={communesError}
             />
           </div>
           <OrderSummary

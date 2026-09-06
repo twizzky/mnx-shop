@@ -187,48 +187,53 @@ Without this table populated, the checkout page's wilaya dropdown and the `/deli
 
 ---
 
-## 5. Ecotrack live shipment creation (optional)
+## 5. Anderson live shipment creation (optional)
 
-When someone checks out, the order is always saved to `orders` and `order_items` in Supabase regardless of anything in this section — that part needs no setup. This section adds an extra, optional step: automatically creating a real shipment with your courier the moment an order is placed, so it gets a real tracking number without you touching their dashboard.
+When someone checks out, the order is always saved to `orders` and `order_items` in Supabase regardless of anything in this section — that part needs no setup. This section adds an extra, optional step: automatically creating a real shipment with Anderson the moment an order is placed, so it gets a real tracking number without you touching their dashboard.
 
 ### 5.1 Why this needs a server, not just an env var
 
-Ecotrack isn't one API — it's a white-label platform that 80+ Algerian couriers (DHD, Conexlog, MSM Go, and others) each run their own copy of, with their own base URL and their own bearer token. That token is a real secret: anyone who has it can create shipments (and charge you for them) on your courier account.
+Anderson runs on the Ecotrack platform, and its `api_token` is a real secret: anyone who has it can create shipments (and charge you for them) on your courier account.
 
 Because of that, it **cannot** live in `.env` as a `VITE_*` variable — Vite bundles anything prefixed `VITE_` straight into the JavaScript sent to every visitor, so it would be visible to anyone who opens their browser's dev tools. Instead, it's stored as a **Supabase Edge Function secret**, which only runs server-side and is never sent to the browser.
 
-### 5.2 What you need from your courier
+### 5.2 What you need from Anderson
 
-Whichever Ecotrack-powered courier you have an account with (DHD, Conexlog, MSM Go, Rocket Delivery, etc. — see your courier's own dashboard), you need:
-- **API token** — sometimes called "Bearer token" or "clé API". Ask your account manager to enable API access if you don't see it.
-- **Base URL** — the host your courier's platform runs on, e.g. `https://platform.dhd-dz.com` or `https://yourcourier.ecotrack.dz`.
+- **API token (`api_token`)** — generated from your Anderson Ecotrack account. Ask your account manager to enable API access if you don't see it.
+- **Base URL** — the exact domain of your Anderson Ecotrack login page (no trailing slash), e.g. `https://<your-tenant-domain>`. The token is only valid on its own tenant, so copy it from the dashboard you actually log into.
 
-### 5.3 Deploy the Edge Function
+### 5.3 Deploy the Edge Functions
 
-The function lives at `supabase/functions/create-shipment/index.ts` in this project. From the project root, with the [Supabase CLI](https://supabase.com/docs/guides/cli) installed and logged in:
+Two functions live in `supabase/functions/` in this project: `create-shipment` (creates the parcel) and `get-communes` (feeds the checkout commune dropdown from Anderson's own commune list). From the project root, with the [Supabase CLI](https://supabase.com/docs/guides/cli) installed and logged in:
 
 ```bash
 supabase link --project-ref YOUR_PROJECT_REF   # one-time, links this folder to your Supabase project
 supabase functions deploy create-shipment
+supabase functions deploy get-communes
 ```
 
 ### 5.4 Set the secrets
 
 ```bash
-supabase secrets set ECOTRACK_TOKEN=your_courier_token
-supabase secrets set ECOTRACK_BASE_URL=https://your-courier-base-url
+supabase secrets set ECOTRACK_TOKEN=your_anderson_api_token
+supabase secrets set ECOTRACK_BASE_URL=https://your-anderson-dashboard-domain
 ```
 
-The function also needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to write the tracking number back onto the order (bypassing the customer-facing RLS policies, which correctly don't allow that write). Supabase auto-provides these to every Edge Function in most projects — check **Edge Functions → create-shipment → Secrets** in the dashboard after deploying; if either is missing, copy `SUPABASE_SERVICE_ROLE_KEY` from **Project Settings → API** and set it the same way as above.
+The functions also need `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to write the tracking number back onto the order (bypassing the customer-facing RLS policies, which correctly don't allow that write). Supabase auto-provides these to every Edge Function in most projects — check **Edge Functions → create-shipment → Secrets** in the dashboard after deploying; if either is missing, copy `SUPABASE_SERVICE_ROLE_KEY` from **Project Settings → API** and set it the same way as above.
 
 ### 5.5 How it actually ships a parcel
 
-This function talks to your courier through [`freeship.dzbuild.com`](https://freeship.dzbuild.com) — a free, no-signup, documented gateway that normalizes Ecotrack (and several other Algerian couriers) behind one stable request shape, since raw per-tenant Ecotrack endpoints aren't consistently documented across all 80+ white-labeled couriers. Your credentials are only ever used for that one request and aren't stored anywhere by the gateway.
+The `create-shipment` function calls Anderson's Ecotrack API directly — `POST {base}/api/v1/create/order` with your `api_token` plus the order details (`reference`, `nom_client`, `telephone`, `adresse`, `commune`, `code_wilaya`, `montant`, `type=1`, `stop_desk=0/1`, `produit`, `remarque`). No third-party gateway sits in the middle: your credentials only ever travel between Supabase's servers and Anderson.
 
-If your courier later gives you their own direct Ecotrack API docs and you'd rather call it straight, adjust the `fetch(...)` call inside `supabase/functions/create-shipment/index.ts` accordingly — the rest of the checkout flow doesn't need to change.
+Two details worth knowing:
+
+- **Commune comes from Anderson's own list.** They reject unknown commune names, so checkout loads the commune dropdown live from `GET {base}/api/v1/get/communes` (via the `get-communes` function) instead of free text. In stopdesk mode it shows desk communes first, and picking one of your configured stopdesks pre-selects its matching commune automatically. If the list can't load, checkout falls back to a text field rather than blocking the order.
+- **Phone numbers are normalized server-side** to the 9–10 digit form Anderson expects (`+213 5xx xxx xxx` → `05xx xxx xxx`, etc.).
+
+A successful call returns `{ "success": true, "tracking": "..." }`, and that tracking code is saved onto the order and shown on the confirmation screen.
 
 ### 5.6 Testing it
 
-Place a real test order through checkout. If everything's configured, the confirmation screen shows a **Courier Tracking** number a moment after the order confirms (it arrives slightly after the main confirmation, since it's a separate background call). Check **Table Editor → orders → tracking_number** either way — it's saved there once shipment creation succeeds.
+Place a real test order through checkout. First check the commune dropdown populates after picking a wilaya — if it doesn't, your base URL or token is off (check the `get-communes` logs). If everything's configured, the confirmation screen shows a **Courier Tracking** number a moment after the order confirms (it arrives slightly after the main confirmation, since it's a separate background call). Check **Table Editor → orders → tracking_number** either way — it's saved there once shipment creation succeeds.
 
-If it's not configured yet, or the courier's system is briefly unavailable, checkout still works normally — the order save is never blocked by this step. You can always create the shipment manually from your courier's own dashboard using the order's details in Supabase.
+If it's not configured yet, or Anderson's system is briefly unavailable, checkout still works normally — the order save is never blocked by this step. You can always create the shipment manually from your Anderson dashboard using the order's details in Supabase.
