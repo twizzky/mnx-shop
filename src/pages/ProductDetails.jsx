@@ -113,15 +113,18 @@ export default function ProductDetails() {
               <div className="pd-variants">
                 <span className="eyebrow">Colour / Model</span>
                 <div className="pd-variant-options">
-                  {variants.map((v) => (
-                    <Link
-                      key={v.id}
-                      to={`/product/${v.id}`}
-                      className={`pd-variant${v.id === product.id ? ' active' : ''}`}
-                    >
-                      {variantLabel(v)}
-                    </Link>
-                  ))}
+                  {variants.map((v) => {
+                    const soldOut = stockStatus(v.stock).state === 'out';
+                    return (
+                      <Link
+                        key={v.id}
+                        to={`/product/${v.id}`}
+                        className={`pd-variant${v.id === product.id ? ' active' : ''}${soldOut ? ' soldout' : ''}`}
+                      >
+                        {variantLabel(v)}
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             )}

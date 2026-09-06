@@ -121,6 +121,24 @@
   color: var(--paper);
   border-color: var(--ink);
 }
+/* Sold-out variants stay clickable (so the customer can view them)
+   but read clearly as unavailable: dimmed text with a single bar. */
+.pd-variant.soldout {
+  position: relative;
+  color: var(--gray-400);
+}
+.pd-variant.soldout::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 50%;
+  height: 1px;
+  background: currentColor;
+}
+.pd-variant.soldout.active {
+  color: var(--paper);
+}
 .pd-add {
   width: 100%;
   max-width: 340px;
