@@ -3,6 +3,7 @@ import { useParams, Link, Navigate } from 'react-router-dom';
 import { fmt, productImages } from '../utils/format';
 import { stockStatus } from '../utils/stock';
 import { useProducts } from '../hooks/useProducts';
+import { getVariants, variantLabel } from '../utils/variants';
 import { useCart } from '../hooks/useCart';
 import { useToast } from '../hooks/useToast';
 import QtyStepper from '../components/UI/QtyStepper';
@@ -12,7 +13,7 @@ import './ProductDetails.css';
 
 export default function ProductDetails() {
   const { id } = useParams();
-  const { findProduct, loading } = useProducts();
+  const { products, findProduct, loading } = useProducts();
   const { addItem } = useCart();
   const { showToast } = useToast();
 
@@ -40,6 +41,7 @@ export default function ProductDetails() {
   const status = stockStatus(product.stock);
   const canBuy = status.state !== 'out';
   const maxQty = Math.max(1, Number(product.stock) || 1);
+  const variants = getVariants(products, product);
 
   const stepQty = (delta) => {
     setQty((v) => Math.min(Math.max(1, v + delta), canBuy ? maxQty : 1));
@@ -106,6 +108,23 @@ export default function ProductDetails() {
             <p className="pd-desc">{product.desc}</p>
 
             <AvailabilityIndicator stock={product.stock} />
+
+            {variants.length > 0 && (
+              <div className="pd-variants">
+                <span className="eyebrow">Colour / Model</span>
+                <div className="pd-variant-options">
+                  {variants.map((v) => (
+                    <Link
+                      key={v.id}
+                      to={`/product/${v.id}`}
+                      className={`pd-variant${v.id === product.id ? ' active' : ''}`}
+                    >
+                      {variantLabel(v)}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="qty-row">
               <span className="eyebrow">Qty</span>

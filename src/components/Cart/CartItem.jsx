@@ -1,4 +1,5 @@
 import { fmt, productImages } from '../../utils/format';
+import { displayName } from '../../utils/variants';
 import QtyStepper from '../UI/QtyStepper';
 import './CartItem.css';
 
@@ -8,10 +9,10 @@ export default function CartItem({ product, qty, lineTotal, onChangeQty, onRemov
   return (
     <div className="cart-item">
       <div className="ci-img">
-        <img src={thumbnail} alt={product.name} />
+        <img src={thumbnail} alt={displayName(product)} />
       </div>
       <div>
-        <div className="ci-name">{product.name}</div>
+        <div className="ci-name">{displayName(product)}</div>
         <div className="ci-cat">{product.cat}</div>
         <QtyStepper
           value={qty}

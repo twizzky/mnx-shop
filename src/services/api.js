@@ -12,6 +12,36 @@ function filterActiveCategories(products) {
   return products.filter((p) => CATEGORIES.includes(p.cat));
 }
 
+const FULL_PRODUCT_COLUMNS =
+  'id, cat, name, price, description, stock, seed, tag, featured, image_url, image_urls, variant_group, variant_name';
+// Fallback when the products table predates variants (see SUPABASE_SETUP.md §2).
+const BASE_PRODUCT_COLUMNS =
+  'id, cat, name, price, description, stock, seed, tag, featured, image_url, image_urls';
+
+function mapProductRow(r, withVariants) {
+  return {
+    id: r.id,
+    cat: r.cat,
+    name: r.name,
+    price: Number(r.price),
+    desc: r.description,
+    stock: r.stock,
+    seed: r.seed,
+    tag: r.tag,
+    featured: r.featured,
+    image_url: r.image_url,
+    image_urls: r.image_urls,
+    variant_group: withVariants ? r.variant_group || null : null,
+    variant_name: withVariants ? r.variant_name || null : null,
+  };
+}
+
+/** True when a products select failed only because variant_* columns don't exist yet. */
+function isMissingVariantColumnError(error) {
+  const msg = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+  return error?.code === '42703' || error?.code === 'PGRST204' || msg.includes('variant_group');
+}
+
 /**
  * Loads the product catalog from Supabase. Falls back to the local
  * DEFAULT_PRODUCTS list if Supabase isn't configured yet, or if the
@@ -21,27 +51,31 @@ export async function fetchProducts() {
   if (!supabase) return filterActiveCategories(DEFAULT_PRODUCTS);
 
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, cat, name, price, description, stock, seed, tag, featured, image_url, image_urls')
-      .order('created_at', { ascending: true });
+    let rows;
+    let withVariants = true;
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select(FULL_PRODUCT_COLUMNS)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      rows = data;
+    } catch (err) {
+      // Table predates the variant_group/variant_name columns — retry
+      // without them instead of falling back to demo products.
+      if (!isMissingVariantColumnError(err)) throw err;
+      console.warn('products table missing variant columns, loading without them:', err.message);
+      const { data, error } = await supabase
+        .from('products')
+        .select(BASE_PRODUCT_COLUMNS)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      rows = data;
+      withVariants = false;
+    }
+    if (!rows || !rows.length) return filterActiveCategories(DEFAULT_PRODUCTS);
 
-    if (error) throw error;
-    if (!data || !data.length) return filterActiveCategories(DEFAULT_PRODUCTS);
-
-    const mapped = data.map((r) => ({
-      id: r.id,
-      cat: r.cat,
-      name: r.name,
-      price: Number(r.price),
-      desc: r.description,
-      stock: r.stock,
-      seed: r.seed,
-      tag: r.tag,
-      featured: r.featured,
-      image_url: r.image_url,
-      image_urls: r.image_urls,
-    }));
+    const mapped = rows.map((r) => mapProductRow(r, withVariants));
     return filterActiveCategories(mapped);
   } catch (err) {
     console.error('Could not load products from Supabase, using defaults:', err);

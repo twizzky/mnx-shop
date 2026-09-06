@@ -20,6 +20,8 @@ create table products (
   featured boolean default false,
   image_url text,        -- single main product photo (optional)
   image_urls text[],     -- gallery of photo URLs for the product page (optional)
+  variant_group text,    -- shared id linking colour/model variants into one post (optional, see USAGE.md §3.4)
+  variant_name text,     -- label shown on the variant picker, e.g. 'Red' (optional)
   created_at timestamp with time zone default now()
 );
 alter table products enable row level security;
@@ -155,6 +157,15 @@ update orders set status = 'pending' where status = 'new';
 alter table products add column if not exists image_url text;
 alter table products add column if not exists image_urls text[];
 ```
+
+**If your `products` table already exists without variant support (colour/model variants in one post, see USAGE.md §3.4):**
+
+```sql
+alter table products add column if not exists variant_group text;
+alter table products add column if not exists variant_name text;
+```
+
+(The storefront also works without these columns — it just won't show any variant picker. Adding them is safe and changes nothing about existing rows.)
 
 **If your `products` table still has the old `availability boolean` column instead of `stock integer`:**
 

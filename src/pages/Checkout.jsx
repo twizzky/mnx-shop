@@ -6,6 +6,7 @@ import { useProducts } from '../hooks/useProducts';
 import { submitOrder as submitOrderRequest } from '../services/api';
 import { createShipment, fetchCommunes } from '../services/andersonApi';
 import { fmt } from '../utils/format';
+import { dedupeVariants, displayName } from '../utils/variants';
 import { buildWhatsAppLink, DELIVERY_METHODS } from '../utils/constants';
 import CheckoutForm from '../components/Checkout/CheckoutForm';
 import OrderSummary from '../components/Checkout/OrderSummary';
@@ -150,10 +151,11 @@ export default function Checkout() {
 
   const isDoorstep = form.deliveryMethod === 'homedelivery';
 
-  // Post-checkout suggestions: featured first, in-stock preferred.
+  // Post-checkout suggestions: featured first, in-stock preferred,
+  // one card per variant group.
   const suggested = useMemo(() => {
     const pool = products.filter((p) => Number(p.stock) > 0);
-    const base = pool.length ? pool : products;
+    const base = dedupeVariants(pool.length ? pool : products);
     return [...base.filter((p) => p.featured), ...base.filter((p) => !p.featured)].slice(0, 4);
   }, [products]);
 
@@ -186,7 +188,7 @@ export default function Checkout() {
     setSubmitting(true);
     const orderNumber = generateOrderNumber();
     const itemLines = lineItems
-      .map(({ product, qty, lineTotal }) => `${product.name} x${qty} — ${fmt(lineTotal)}`)
+      .map(({ product, qty, lineTotal }) => `${displayName(product)} x${qty} — ${fmt(lineTotal)}`)
       .join('\n');
     const total = cartTotal + deliveryPrice;
 

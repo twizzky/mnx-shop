@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useProducts } from '../hooks/useProducts';
+import { dedupeVariants } from '../utils/variants';
 import ProductGrid from '../components/ProductGrid/ProductGrid';
 import './Search.css';
 
@@ -18,8 +19,9 @@ export default function Search() {
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((p) => {
+    const pool = dedupeVariants(products);
+    if (!q) return pool;
+    return pool.filter((p) => {
       return (
         p.name?.toLowerCase().includes(q) ||
         p.cat?.toLowerCase().includes(q) ||

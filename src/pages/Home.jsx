@@ -4,11 +4,12 @@ import Ticker from '../components/UI/Ticker';
 import ProductGrid from '../components/ProductGrid/ProductGrid';
 import Button from '../components/UI/Button';
 import { useProducts } from '../hooks/useProducts';
+import { dedupeVariants } from '../utils/variants';
 import './Home.css';
 
 export default function Home() {
   const { products, loading } = useProducts();
-  const featured = products.filter((p) => p.featured);
+  const featured = dedupeVariants(products.filter((p) => p.featured));
 
   return (
     <main className="page">

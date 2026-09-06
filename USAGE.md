@@ -165,6 +165,40 @@ Want to reset back to the default sample catalog instead (e.g. after testing), o
 
 Want a much fuller catalog for testing (more products per category)? Run **`SEED_PRODUCTS_BULK.sql`** too — it adds ~30 more sample products the same safe, re-runnable way.
 
+### 3.4 Posting colour/model variants in one post (like AliExpress)
+
+Say you have one charm in 3 colours and want a single post with a colour picker, instead of 3 separate posts. The trick: create one row per colour, give them all the **same `variant_group` id**, and a different **`variant_name`** each. The shop then shows one card, and the product page shows a Colour / Model picker — each variant keeps its own price, stock, and photos, and orders record exactly which variant was bought.
+
+> First time? Run this once so the two columns exist (safe to re-run, changes nothing otherwise):
+> ```sql
+> alter table products add column if not exists variant_group text;
+> alter table products add column if not exists variant_name text;
+> ```
+
+Table Editor → **products → Insert row**, one row per variant. Example — a charm in red, blue, black:
+
+| `id` (unique!) | `cat` | `name` | `price` | `stock` | `variant_group` (same!) | `variant_name` |
+|---|---|---|---|---|---|---|
+| `kc-20` | Keychains | Sunset Charm | 9 | 10 | `sunset-charm` | Red |
+| `kc-21` | Keychains | Sunset Charm | 9 | 7 | `sunset-charm` | Blue |
+| `kc-22` | Keychains | Sunset Charm | 10 | 0 | `sunset-charm` | Black |
+
+Rules:
+- `id` must be unique per row (e.g. `kc-20`, `kc-21`, `kc-22`).
+- `variant_group` must be **identical** across the variants (any slug you like, e.g. the product slug).
+- `variant_name` is the picker label (`Red`, `128GB`, `Pro Max`…). Leave it empty and the picker falls back to the product name.
+- Everything else is per-variant: different prices, different `stock` (a sold-out variant stays selectable but can't be added — same as normal products), different photos via `image_url`/`image_urls`.
+- To un-group later, just clear `variant_group` — the rows become normal standalone posts again.
+
+Prefer SQL? Same example in one shot:
+
+```sql
+insert into products (id, cat, name, price, description, stock, seed, variant_group, variant_name) values
+('kc-20', 'Keychains', 'Sunset Charm', 9, 'Sunset-gradient acrylic charm.', 10, 'kc20r', 'sunset-charm', 'Red'),
+('kc-21', 'Keychains', 'Sunset Charm', 9, 'Sunset-gradient acrylic charm.', 7, 'kc20b', 'sunset-charm', 'Blue'),
+('kc-22', 'Keychains', 'Sunset Charm', 10, 'Sunset-gradient acrylic charm.', 0, 'kc20k', 'sunset-charm', 'Black');
+```
+
 ---
 
 ## 4. Adding product images

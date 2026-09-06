@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { fmt } from '../../utils/format';
+import { displayName } from '../../utils/variants';
 import './OrderSummary.css';
 
 export default function OrderSummary({ lineItems, subtotal, deliveryPrice, deliveryLabel }) {
@@ -22,7 +23,7 @@ export default function OrderSummary({ lineItems, subtotal, deliveryPrice, deliv
       {lineItems.map(({ product, qty, lineTotal }) => (
         <div className="co-line" key={product.id}>
           <span className="n">
-            {product.name} × {qty}
+            {displayName(product)} × {qty}
           </span>
           <span className="p">{fmt(lineTotal)}</span>
         </div>
