@@ -9,12 +9,11 @@ export default function Hero() {
     <section className="hero">
       <HeroDecor />
       <div className="wrap hero-content">
-        <span className="eyebrow">Keychains · Accessories · Custom Console Mods</span>
-        <h1>Keychains, accessories &amp; custom console mods.</h1>
+        <span className="eyebrow">Keychains · Accessories · Nationwide Delivery</span>
+        <h1>Keychains &amp; accessories, delivered anywhere in Algeria.</h1>
         <p>
           Welcome to MNX Accessories — your go-to page for anime keychains and gaming accessories. Browse the
-          latest drops below, or message us on Instagram or WhatsApp for custom modding requests on your own
-          console.
+          latest drops below, or message us on Instagram or WhatsApp with any questions.
         </p>
         <div className="hero-actions">
           <Button as={Link} to="/shop" variant="primary">

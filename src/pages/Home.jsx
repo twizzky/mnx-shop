@@ -2,8 +2,6 @@ import { Link } from 'react-router-dom';
 import Hero from '../components/Hero/Hero';
 import Ticker from '../components/UI/Ticker';
 import ProductGrid from '../components/ProductGrid/ProductGrid';
-import ModServiceBanner from '../components/UI/ModServiceBanner';
-import SquiggleDivider from '../components/UI/SquiggleDivider';
 import Button from '../components/UI/Button';
 import { useProducts } from '../hooks/useProducts';
 import './Home.css';
@@ -21,9 +19,8 @@ export default function Home() {
           <div>
             <span className="eyebrow">Welcome to MNX</span>
             <p style={{ marginTop: 16 }}>
-              MNX Accessories brings you handpicked anime keychains, gaming accessories, and modded consoles —
-              sourced, checked, and shipped with care. Looking for something custom? We also offer a full console
-              modding service, from swapped shells to complete builds.
+              MNX Accessories brings you handpicked anime keychains and gaming accessories — sourced, checked,
+              and shipped with care to every wilaya.
             </p>
           </div>
           <div className="about-stats">
@@ -36,8 +33,8 @@ export default function Home() {
               <span>Categories</span>
             </div>
             <div className="stat">
-              <b>1:1</b>
-              <span>Custom Mods on Request</span>
+              <b>58</b>
+              <span>Wilayas Delivered To</span>
             </div>
             <div className="stat">
               <b>4.9★</b>
@@ -63,10 +60,6 @@ export default function Home() {
         </div>
         {!loading && <ProductGrid products={featured} />}
       </section>
-
-      <SquiggleDivider />
-
-      <ModServiceBanner />
     </main>
   );
 }
