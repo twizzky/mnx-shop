@@ -62,6 +62,8 @@ export async function submitOrder({
   wilaya,
   commune,
   address,
+  stopdeskLocation,
+  notes,
   deliveryMethod,
   deliveryPrice,
   subtotal,
@@ -73,26 +75,42 @@ export async function submitOrder({
     return { success: true, error: null, orderId: null };
   }
 
-  const { data: orderRow, error: orderError } = await supabase
-    .from('orders')
-    .insert([
-      {
-        order_number: orderNumber,
-        customer_name: name,
-        phone,
-        wilaya,
-        commune,
-        address: address || null,
-        delivery_method: deliveryMethod,
-        delivery_price: deliveryPrice,
-        subtotal,
-        total,
-        items: itemLines, // human-readable summary, quick to scan in Table Editor
-        status: 'pending',
-      },
-    ])
-    .select()
-    .single();
+  const baseRow = {
+    order_number: orderNumber,
+    customer_name: name,
+    phone,
+    wilaya,
+    commune,
+    address: address || null,
+    delivery_method: deliveryMethod,
+    delivery_price: deliveryPrice,
+    subtotal,
+    total,
+    items: itemLines, // human-readable summary, quick to scan in Table Editor
+    status: 'pending',
+  };
+  const fullRow = {
+    ...baseRow,
+    stopdesk_location: stopdeskLocation || null,
+    notes: notes || null,
+  };
+
+  let orderRow = null;
+  let orderError = null;
+
+  ({ data: orderRow, error: orderError } = await supabase.from('orders').insert([fullRow]).select().single());
+
+  if (orderError && isMissingColumnError(orderError)) {
+    // The orders table hasn't been migrated yet (no stopdesk_location /
+    // notes columns) — retry with the original shape so checkout keeps
+    // working, folding the extra details into the items summary.
+    console.warn('orders table missing new columns, retrying without them:', orderError.message);
+    const fallbackRow = {
+      ...baseRow,
+      items: appendExtraDetails(itemLines, stopdeskLocation, notes),
+    };
+    ({ data: orderRow, error: orderError } = await supabase.from('orders').insert([fallbackRow]).select().single());
+  }
 
   if (orderError) {
     console.error(orderError);
@@ -116,4 +134,27 @@ export async function submitOrder({
   }
 
   return { success: true, error: null, orderId: orderRow.id };
+}
+
+/**
+ * True when a Supabase insert failed because the `orders` table doesn't
+ * have the newer `stopdesk_location` / `notes` columns yet (Postgres
+ * 42703 undefined_column, or a PostgREST schema-cache complaint).
+ */
+function isMissingColumnError(error) {
+  const msg = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+  return (
+    error?.code === '42703' ||
+    error?.code === 'PGRST204' ||
+    msg.includes('stopdesk_location') ||
+    (msg.includes('notes') && msg.includes('column')) ||
+    msg.includes('schema cache')
+  );
+}
+
+function appendExtraDetails(itemLines, stopdeskLocation, notes) {
+  let out = itemLines || '';
+  if (stopdeskLocation) out += `\nStopdesk: ${stopdeskLocation}`;
+  if (notes) out += `\nNotes: ${notes}`;
+  return out;
 }

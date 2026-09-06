@@ -23,6 +23,8 @@ const INITIAL_FORM = {
   commune: '',
   address: '',
   deliveryMethod: DELIVERY_METHODS[0].value,
+  stopdeskLocation: '',
+  notes: '',
 };
 
 export default function Checkout() {
@@ -35,7 +37,15 @@ export default function Checkout() {
   const [confirmedOrder, setConfirmedOrder] = useState(null); // { orderNumber, trackingNumber } | null
 
   const handleFieldChange = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      // A stopdesk choice only makes sense for its wilaya + method —
+      // clear it whenever either changes so a stale desk can't be submitted.
+      if (field === 'wilaya' || field === 'deliveryMethod') {
+        next.stopdeskLocation = '';
+      }
+      return next;
+    });
   };
 
   // Recomputed instantly whenever wilaya, delivery method, or the
@@ -66,6 +76,10 @@ export default function Checkout() {
       showToast('Please add a street address for doorstep delivery');
       return;
     }
+    if (!isDoorstep && !form.stopdeskLocation) {
+      showToast('Please select a stopdesk location');
+      return;
+    }
     if (deliveryPrice === null) {
       showToast('Please select a wilaya and delivery method');
       return;
@@ -85,6 +99,8 @@ export default function Checkout() {
       wilaya: form.wilaya,
       commune: form.commune.trim(),
       address: isDoorstep ? form.address.trim() : null,
+      stopdeskLocation: !isDoorstep ? form.stopdeskLocation : null,
+      notes: form.notes.trim() || null,
       deliveryMethod: deliveryLabel,
       deliveryPrice,
       subtotal: cartTotal,

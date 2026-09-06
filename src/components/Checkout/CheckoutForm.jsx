@@ -1,6 +1,12 @@
 import Button from '../UI/Button';
 import { DELIVERY_METHODS } from '../../utils/constants';
+import storeLocationsData from '../../../store_locations.json';
 import './CheckoutForm.css';
+
+function formatStopdeskLabel(loc) {
+  if (!loc.city) return `${loc.wilaya} (Main Stopdesk)`;
+  return `${loc.wilaya} - ${loc.city}`;
+}
 
 /**
  * Fully controlled — all field values and change handling live in the
@@ -9,6 +15,14 @@ import './CheckoutForm.css';
  */
 export default function CheckoutForm({ values, onChange, onSubmit, submitting, wilayaOptions, wilayaLoading }) {
   const isDoorstep = values.deliveryMethod === 'homedelivery';
+  const isStopdesk = values.deliveryMethod === 'stopdesk';
+
+  const selectedWilayaCode = wilayaOptions.find((w) => w.wilaya === values.wilaya)?.wilaya_code;
+  const allLocations = storeLocationsData.locations || [];
+  const stopdeskOptions =
+    selectedWilayaCode != null
+      ? allLocations.filter((loc) => loc.wilaya_code === selectedWilayaCode)
+      : allLocations;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -115,6 +129,44 @@ export default function CheckoutForm({ values, onChange, onSubmit, submitting, w
           />
         </div>
       )}
+
+      {isStopdesk && (
+        <div className="field">
+          <label htmlFor="cf-stopdesk">Stopdesk Location</label>
+          <select
+            id="cf-stopdesk"
+            required={isStopdesk}
+            value={values.stopdeskLocation}
+            onChange={(e) => onChange('stopdeskLocation', e.target.value)}
+          >
+            <option value="" disabled>
+              {values.wilaya
+                ? stopdeskOptions.length
+                  ? 'Select your stopdesk'
+                  : 'No stopdesk found for this wilaya'
+                : 'Select a wilaya first'}
+            </option>
+            {stopdeskOptions.map((loc) => {
+              const label = formatStopdeskLabel(loc);
+              return (
+                <option key={loc.id} value={label}>
+                  {label}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      )}
+
+      <div className="field">
+        <label htmlFor="cf-notes">Additional Notes</label>
+        <textarea
+          id="cf-notes"
+          placeholder="Anything else we should know? (optional)"
+          value={values.notes}
+          onChange={(e) => onChange('notes', e.target.value)}
+        />
+      </div>
 
       <Button type="submit" variant="primary" style={{ width: '100%', marginTop: 8 }} disabled={submitting}>
         {submitting ? 'Placing Order…' : 'Confirm Order'}
