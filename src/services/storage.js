@@ -73,6 +73,11 @@ export function isManagedImageUrl(url) {
 /**
  * Single entry point to the admin-images function. Keeps the URL shape,
  * auth headers and error normalisation in one place.
+ *
+ * The PIN does NOT go in `Authorization`: Supabase's gateway validates
+ * that header as a JWT and answers 401 Invalid JWT before the function is
+ * ever invoked. The anon key goes there instead, and the PIN rides along in
+ * its own header (plus a form field, as a proxy-stripping fallback).
  */
 async function callAdminImages(formData, pin) {
   if (!supabase) {
@@ -80,13 +85,16 @@ async function callAdminImages(formData, pin) {
   }
 
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-images`;
+  formData.append('pin', pin);
+
   let res;
   try {
     res = await fetch(url, {
       method: 'POST',
       headers: {
         apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${pin}`,
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'x-admin-pin': pin,
       },
       body: formData,
     });
@@ -102,6 +110,8 @@ async function callAdminImages(formData, pin) {
   }
 
   if (!res.ok) {
+    // A wrong PIN and a stale/rotated secret are indistinguishable to the
+    // caller by design, but the message still has to be actionable.
     if (res.status === 401) throw new Error('Incorrect PIN.');
     // A bare 404 from the platform means the function was never deployed
     // (or the project has no functions enabled) — a very common first-run

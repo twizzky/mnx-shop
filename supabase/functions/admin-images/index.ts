@@ -20,7 +20,11 @@
 // This function is the ONLY thing allowed to write to `products` and to
 // delete from the `product-images` bucket.
 //
-// Request: POST, multipart/form-data, PIN in `Authorization: Bearer <pin>`.
+// Request: POST, multipart/form-data.
+//   Authorization: Bearer <supabase anon key>  (the platform gateway
+//     rejects anything that isn't a valid JWT before the function runs, so
+//     the anon key goes here and the PIN travels in its own channel)
+//   x-admin-pin: <pin>   (and/or a `pin` form field, as a fallback)
 //   action=upload  files[]=<File>...        -> { success, urls[] }
 //   action=save    productIds=[...] urls=[...] -> { success, updated }
 //   action=delete  urls=[...]               -> { success, removed[] }
@@ -44,7 +48,7 @@ const ACCEPTED_MIME = new Set([
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-pin',
 };
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -130,19 +134,22 @@ Deno.serve(async (req) => {
     return jsonResponse({ success: false, error: 'Server credentials are missing.' }, 500);
   }
 
-  const header = req.headers.get('authorization') || '';
-  const presented = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-  if (!presented || !pinMatches(presented, ADMIN_PIN)) {
-    // Same shape for "no pin" and "wrong pin" so the endpoint can't be
-    // used to confirm whether a guessed pin is close.
-    return jsonResponse({ success: false, error: 'Incorrect PIN.' }, 401);
-  }
-
   let form: FormData;
   try {
     form = await req.formData();
   } catch {
     return jsonResponse({ success: false, error: 'Invalid request body.' }, 400);
+  }
+
+  // The PIN travels in its own channel because the platform gateway
+  // validates `Authorization` as a JWT and would reject a bare PIN before
+  // this code ever ran. The header is the primary carrier; the form field
+  // is a fallback in case a proxy strips custom headers.
+  const presented = (req.headers.get('x-admin-pin') || String(form.get('pin') || '')).trim();
+  if (!presented || !pinMatches(presented, ADMIN_PIN)) {
+    // Same shape for "no pin" and "wrong pin" so the endpoint can't be
+    // used to confirm whether a guessed pin is close.
+    return jsonResponse({ success: false, error: 'Incorrect PIN.' }, 401);
   }
 
   const action = String(form.get('action') || '');
@@ -228,7 +235,14 @@ Deno.serve(async (req) => {
 
       const { error } = await supabaseAdmin
         .from('products')
-        .update({ image_urls: clean, image_url: clean[0] ?? null })
+        .update({
+          // Store NULL rather than an empty array when every photo was
+          // removed, so a cleared row is identical to one that never had
+          // photos. `productImages` handles both, but the seed scripts and
+          // Table Editor read more sensibly this way.
+          image_urls: clean.length ? clean : null,
+          image_url: clean[0] ?? null,
+        })
         .in('id', productIds);
 
       if (error) {
