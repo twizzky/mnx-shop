@@ -24,6 +24,94 @@
   padding-top: 40px;
 }
 
+/* ---------- Header: "acting as" + Lock ---------- */
+.admin-head-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.admin-who {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.admin-who label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray-600);
+}
+.admin-who .admin-input {
+  padding: 9px 12px;
+  font-size: 14px;
+  min-width: 180px;
+}
+
+/* ---------- Activity log ---------- */
+.admin-activity {
+  margin-top: 56px;
+}
+.admin-subtitle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray-600);
+  margin-right: auto;
+}
+
+.admin-log {
+  display: flex;
+  flex-direction: column;
+}
+.admin-log-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.admin-log-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--gray-400);
+}
+.admin-log-dot.upload {
+  background: #2f6f4f;
+}
+.admin-log-dot.save {
+  background: var(--ink);
+}
+.admin-log-dot.delete {
+  background: #a1261f;
+}
+.admin-log-actor {
+  font-weight: 600;
+}
+.admin-log-action {
+  color: var(--gray-600);
+}
+.admin-log-detail {
+  color: var(--gray-600);
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.admin-log-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gray-400);
+  margin-left: auto;
+  flex: none;
+}
+
 /* ---------- PIN gate ---------- */
 .admin-pin {
   max-width: 380px;

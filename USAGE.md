@@ -214,7 +214,13 @@ supabase functions deploy admin-images
 supabase secrets set ADMIN_PIN=choose-a-long-random-pin
 ```
 
-### 4.2 Attaching photos
+Optionally, to record who changed what, also run **`ADMIN_AUDIT_LOG.sql`** in the SQL Editor — see §4.7.
+
+### 4.2 Signing in
+
+One PIN is shared between everyone with admin access. Before working, set **Acting as** in the top-right — your name is stored in that browser tab and written into the activity log, so a change made six months ago can be traced back to a person rather than just "the admin".
+
+### 4.3 Attaching photos
 
 1. Go to **`/admin`** on your site (type the path directly — there's no link to it anywhere on the shop).
 2. Enter your admin PIN. It stays remembered for the rest of that browser tab; **Lock** clears it.
@@ -225,19 +231,27 @@ supabase secrets set ADMIN_PIN=choose-a-long-random-pin
 
 Large photos are resized in your browser before uploading, so a 10 MB phone photo won't fail or slow the page down.
 
-### 4.3 Variants
+### 4.4 Variants
 
 If the product belongs to a variant group (several colours or models listed as one product), the admin page offers **Apply to all N variants in this group**. Use it when the photos are identical across variants — leave it unticked when each variant has its own photos.
 
-### 4.4 Removing photos
+### 4.5 Removing photos
 
 **Remove** takes a photo out of the list; press **Save photos** to publish that. The file itself stays in storage until you press **Delete N unused files**, which appears once your changes are saved. That two-step order is deliberate — removing and saving first means a catalog row can never end up pointing at a deleted file.
 
-### 4.5 Using photos hosted elsewhere
+### 4.6 Using photos hosted elsewhere
 
 Any public, direct image URL still works — Instagram CDN links, Cloudinary, imgur, etc. You can paste one into `image_url` in the Table Editor as before. Just note that the **Delete unused files** button only ever deletes files hosted in your own `product-images` bucket; it ignores anything else.
 
-### 4.6 If you skip this entirely
+### 4.7 The activity log
+
+The bottom of the `/admin` page lists the 50 most recent photo changes: who, what, which products, and how long ago. It needs `ADMIN_AUDIT_LOG.sql` to have been run (`SUPABASE_SETUP.md` §1.2) — until then that section just says so, and nothing else is affected.
+
+Because a shared PIN can't identify anyone on its own, entries are attributed to the name in the **Acting as** field. That's an honour-system label rather than a verified identity; it answers "was that you?" but won't stop someone typing a different name.
+
+The table is unreadable with the public anon key, so you can only review the log from `/admin` or by querying `admin_audit_log` with the service-role key — never from the Table Editor with a normal session.
+
+### 4.8 If you skip this entirely
 
 Products without photos fall back to auto-generated placeholder images (built from the `seed` field), so the site never breaks or shows blank images — it just won't look finished until real photos are added.
 

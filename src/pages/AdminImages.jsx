@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useProducts } from '../hooks/useProducts';
 import { useToast } from '../hooks/useToast';
 import {
   MAX_FILES_PER_UPLOAD,
   deleteProductImages,
+  fetchAdminActivity,
   isManagedImageUrl,
   isStorageConfigured,
   saveProductImages,
@@ -19,6 +20,7 @@ import './AdminImages.css';
 // JS); the real gate is the admin-images Edge Function, which refuses
 // every write without the server-side ADMIN_PIN secret.
 const PIN_STORAGE_KEY = 'mnx-admin-pin';
+const ACTOR_STORAGE_KEY = 'mnx-admin-actor';
 
 export default function AdminImages() {
   const { products, loading, applyImageUpdate } = useProducts();
@@ -40,10 +42,20 @@ export default function AdminImages() {
   const [broken, setBroken] = useState(() => new Set());
   const [orphansCleaned, setOrphansCleaned] = useState(false);
 
+  // You and your client share one PIN, so the PIN can't say who acted.
+  // This name is what gets written into the audit log.
+  const [actor, setActor] = useState(() => sessionStorage.getItem(ACTOR_STORAGE_KEY) || '');
+  const [actorInput, setActorInput] = useState('');
+  const [activity, setActivity] = useState([]);
+  const [activityError, setActivityError] = useState('');
+
   const fileInput = useRef(null);
   const dragDepth = useRef(0);
 
   const configured = isStorageConfigured();
+
+  // Audit rows store product ids; the loaded catalog turns them into names.
+  const productNames = useMemo(() => new Map(products.map((p) => [p.id, p.name])), [products]);
 
   const selected = useMemo(
     () => products.find((p) => p.id === selectedId) || null,
@@ -118,6 +130,27 @@ export default function AdminImages() {
 
   const markBroken = (url) => setBroken((prev) => new Set(prev).add(url));
 
+  const commitActor = (name) => {
+    const clean = name.trim().slice(0, 60);
+    setActor(clean);
+    if (clean) sessionStorage.setItem(ACTOR_STORAGE_KEY, clean);
+    else sessionStorage.removeItem(ACTOR_STORAGE_KEY);
+  };
+
+  const refreshActivity = useCallback(async () => {
+    try {
+      const { entries, unavailable } = await fetchAdminActivity({ pin });
+      setActivity(entries);
+      setActivityError(unavailable ? 'Run ADMIN_AUDIT_LOG.sql to start recording.' : '');
+    } catch (err) {
+      setActivityError(err.message || 'Could not load activity.');
+    }
+  }, [pin]);
+
+  useEffect(() => {
+    if (unlocked) refreshActivity();
+  }, [unlocked, refreshActivity]);
+
   const handleFiles = async (fileList) => {
     const incoming = Array.from(fileList || []);
     if (!incoming.length || !selected) return;
@@ -151,6 +184,7 @@ export default function AdminImages() {
         productId: selected.id,
         files: prepared,
         pin,
+        actor,
       });
       setDraft((prev) => [...prev, ...urls]);
       setNotice(
@@ -205,9 +239,10 @@ export default function AdminImages() {
     setBusy(true);
     setError('');
     try {
-      await saveProductImages({ productIds: targetIds, urls: draft, pin });
+      await saveProductImages({ productIds: targetIds, urls: draft, pin, actor });
       applyImageUpdate(targetIds, draft);
       setSavedUrls(draft);
+      refreshActivity();
       setNotice(
         targetIds.length > 1
           ? `Saved across ${targetIds.length} variants.`
@@ -225,9 +260,10 @@ export default function AdminImages() {
     setBusy(true);
     setError('');
     try {
-      await deleteProductImages({ urls: orphans, pin });
+      await deleteProductImages({ urls: orphans, pin, actor });
       setNotice(`Deleted ${orphans.length} unused file${orphans.length === 1 ? '' : 's'}.`);
       setOrphansCleaned(true);
+      refreshActivity();
     } catch (err) {
       setError(err.message || 'Could not delete those files.');
     } finally {
@@ -276,9 +312,30 @@ export default function AdminImages() {
             <span className="eyebrow">MNX · Admin</span>
             <h1 className="shop-title">Product Photos</h1>
           </div>
-          <button className="admin-btn" type="button" onClick={lock}>
-            Lock
-          </button>
+          <div className="admin-head-actions">
+            <form
+              className="admin-who"
+              onSubmit={(e) => {
+                e.preventDefault();
+                commitActor(actorInput || actor);
+                refreshActivity();
+              }}
+            >
+              <label htmlFor="admin-actor">Acting as</label>
+              <input
+                id="admin-actor"
+                className="admin-input"
+                value={actorInput}
+                placeholder={actor || 'Your name'}
+                onChange={(e) => setActorInput(e.target.value)}
+                onBlur={() => commitActor(actorInput || actor)}
+                maxLength={60}
+              />
+            </form>
+            <button className="admin-btn" type="button" onClick={lock}>
+              Lock
+            </button>
+          </div>
         </div>
       </header>
 
@@ -476,7 +533,70 @@ export default function AdminImages() {
         ) : (
           !loading && <p className="admin-muted center">Choose a product to start.</p>
         )}
+
+        <section className="admin-activity">
+          <div className="admin-save">
+            <h2 className="admin-subtitle">Recent activity</h2>
+            <button className="admin-btn" type="button" onClick={refreshActivity}>
+              Refresh
+            </button>
+          </div>
+          {!actor && activity.length > 0 && (
+            <p className="admin-muted">
+              Set &ldquo;Acting as&rdquo; above so changes are attributed to you rather than logged
+              as unattributed.
+            </p>
+          )}
+          {activityError && <p className="admin-muted">{activityError}</p>}
+          {!activityError && activity.length === 0 && (
+            <p className="admin-muted">Nothing recorded yet.</p>
+          )}
+          {activity.length > 0 && (
+            <ul className="admin-log">
+              {activity.map((e) => (
+                <li key={e.id} className="admin-log-row">
+                  <span className={`admin-log-dot ${e.action}`} aria-hidden="true" />
+                  <span className="admin-log-actor">{e.actor}</span>
+                  <span className="admin-log-action">
+                    {e.action === 'upload' ? 'uploaded' : e.action === 'save' ? 'saved' : 'deleted'}
+                  </span>
+                  <span className="admin-log-detail">
+                    {e.detail}
+                    {e.product_ids?.length > 0 && (
+                      <>
+                        {' '}
+                        &middot;{' '}
+                        {e.product_ids
+                          .map((id) => productNames.get(id) || id)
+                          .filter((v, i, a) => a.indexOf(v) === i)
+                          .join(', ')}
+                      </>
+                    )}
+                  </span>
+                  <time className="admin-log-time" dateTime={e.created_at}>
+                    {timeAgo(e.created_at)}
+                  </time>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
     </div>
   );
+}
+
+/** Compact "3m ago" / "2d ago" stamp for the activity list. */
+function timeAgo(iso) {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (secs < 60) return 'just now';
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
 }

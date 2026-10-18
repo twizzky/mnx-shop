@@ -87,6 +87,13 @@ function pathFromPublicUrl(url: string): string | null {
   return path;
 }
 
+/** `products/<slug>/<file>` -> `<slug>`, else ''. Used to attribute a
+ *  storage delete back to a product, since the client doesn't resend ids
+ *  with a delete. */
+function productSlugFromPath(path: string): string {
+  return path.match(/^products\/([^/]+)\//)?.[1] || '';
+}
+
 /**
  * Builds a collision-proof, traversal-safe storage key. The original
  * filename is only kept as a readable suffix — everything authority-bearing
@@ -155,7 +162,59 @@ Deno.serve(async (req) => {
   const action = String(form.get('action') || '');
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+  /**
+   * Appends to `admin_audit_log` (see ADMIN_AUDIT_LOG.sql).
+   *
+   * Deliberately never throws: if the table hasn't been created yet, or the
+   * write fails for any other reason, the photo operation the user actually
+   * asked for must still succeed. A missing audit row is a much smaller
+   * problem than an admin page that refuses to upload.
+   */
+  const audit = async (
+    action: string,
+    productIds: string[],
+    fileCount: number,
+    detail: string
+  ) => {
+    try {
+      const { error } = await supabaseAdmin.from('admin_audit_log').insert({
+        // Both of you share one PIN, so the PIN can't say who acted — the
+        // name typed into the /admin page is what attributes the change.
+        actor: (String(form.get('actor') || '').trim() || 'unattributed').slice(0, 60),
+        action,
+        product_ids: productIds,
+        file_count: fileCount,
+        detail: detail.slice(0, 200),
+      });
+      if (error) console.error('audit write failed:', error.message);
+    } catch (err) {
+      console.error('audit write threw:', err);
+    }
+  };
+
   try {
+    // ---------- recent (read the audit log) ----------
+    if (action === 'recent') {
+      const { data, error } = await supabaseAdmin
+        .from('admin_audit_log')
+        .select('id, actor, action, product_ids, file_count, detail, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        // Almost always "table does not exist" — the user hasn't run
+        // ADMIN_AUDIT_LOG.sql yet. Say so instead of showing an error box.
+        const missing = error.code === '42P01' || /does not exist/i.test(error.message);
+        return jsonResponse({
+          success: true,
+          entries: [],
+          auditUnavailable: true,
+          error: missing ? 'Run ADMIN_AUDIT_LOG.sql in the SQL Editor.' : error.message,
+        });
+      }
+      return jsonResponse({ success: true, entries: data || [] });
+    }
+
     // ---------- upload ----------
     if (action === 'upload') {
       const files = form.getAll('files').filter((f): f is File => f instanceof File);
@@ -209,6 +268,7 @@ Deno.serve(async (req) => {
       if (!urls.length) {
         return jsonResponse({ success: false, error: 'Every upload failed. Check the bucket.' }, 500);
       }
+      await audit('upload', [productId], urls.length, `Uploaded ${urls.length} file(s)`);
       return jsonResponse({ success: true, urls, skipped });
     }
 
@@ -249,6 +309,12 @@ Deno.serve(async (req) => {
         console.error('save failed:', error.message);
         return jsonResponse({ success: false, error: 'Could not save the photos.' }, 500);
       }
+      await audit(
+        'save',
+        productIds,
+        clean.length,
+        `Set ${clean.length} photo(s) on ${productIds.length} product(s)`
+      );
       return jsonResponse({ success: true, urls: clean, updated: productIds.length });
     }
 
@@ -275,6 +341,12 @@ Deno.serve(async (req) => {
         console.error('delete failed:', error.message);
         return jsonResponse({ success: false, error: 'Could not delete the photos.' }, 500);
       }
+      await audit(
+        'delete',
+        [...new Set(paths.map(productSlugFromPath))].filter(Boolean),
+        paths.length,
+        `Deleted ${paths.length} file(s) from storage`
+      );
       return jsonResponse({ success: true, removed: paths });
     }
 

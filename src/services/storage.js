@@ -125,31 +125,47 @@ async function callAdminImages(formData, pin) {
 }
 
 /** Uploads files to the bucket and returns their public URLs. */
-export async function uploadProductImages({ productId, files, pin }) {
+export async function uploadProductImages({ productId, files, pin, actor }) {
   const form = new FormData();
   form.append('action', 'upload');
   form.append('productId', productId);
+  form.append('actor', actor || '');
   for (const file of files) form.append('files', file, file.name);
   const data = await callAdminImages(form, pin);
   return { urls: data.urls || [], skipped: data.skipped || [] };
 }
 
 /** Replaces the photo list on one or more product rows. */
-export async function saveProductImages({ productIds, urls, pin }) {
+export async function saveProductImages({ productIds, urls, pin, actor }) {
   const form = new FormData();
   form.append('action', 'save');
   form.append('productIds', JSON.stringify(productIds));
   form.append('urls', JSON.stringify(urls));
+  form.append('actor', actor || '');
   return callAdminImages(form, pin);
 }
 
 /** Permanently removes objects from the bucket. Ignored for any URL not
  *  hosted in our own `product-images/products/` folder. */
-export async function deleteProductImages({ urls, pin }) {
+export async function deleteProductImages({ urls, pin, actor }) {
   const form = new FormData();
   form.append('action', 'delete');
   form.append('urls', JSON.stringify(urls));
+  form.append('actor', actor || '');
   return callAdminImages(form, pin);
+}
+
+/**
+ * Reads the most recent admin activity. The table is locked out of public
+ * reach by RLS, so this can only come through the service-role function.
+ * `auditUnavailable` means ADMIN_AUDIT_LOG.sql hasn't been run yet — that
+ * is a "not set up" state, not a failure worth interrupting anyone over.
+ */
+export async function fetchAdminActivity({ pin }) {
+  const form = new FormData();
+  form.append('action', 'recent');
+  const data = await callAdminImages(form, pin);
+  return { entries: data.entries || [], unavailable: !!data.auditUnavailable };
 }
 
 function formatBytes(bytes) {

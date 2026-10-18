@@ -122,6 +122,16 @@ Use a long random PIN (a password-manager passphrase works well). It authenticat
 
 Once deployed, go to **`/admin`** on your site, enter the PIN, pick a product and drop photos in. See `USAGE.md` §4.
 
+### 1.2 The activity log
+
+**`ADMIN_AUDIT_LOG.sql`** creates an `admin_audit_log` table recording who uploaded, saved or deleted photos, on which products, and when. Run it once in the SQL Editor, or apply it with `supabase db push` (a copy lives in `supabase/migrations/`).
+
+It's **not optional** for the log to appear, but the admin page still works without it — it just shows "Run ADMIN_AUDIT_LOG.sql to start recording" in place of the activity list. Audit writes never block an upload: if the table is missing, the photo still saves.
+
+The table is locked out of public reach on purpose (RLS rejects all reads and writes for the anon role), so the only way in is the service-role function behind the PIN. Nobody with just the anon key — including anyone who finds the project URL — can read it.
+
+**One caveat worth being clear about:** you and your client share a single PIN, so the PIN alone cannot say *who* acted. The `/admin` page therefore has an **"Acting as"** field, and changes are attributed to whatever name is typed there. It's an honour-system label, not an authenticated identity — good enough to answer "was that you?" and spot a client accidentally wiping a catalog, but it won't stop anyone from typing a different name. If you ever need individually revocable access or a tamper-proof trail, that means real per-user accounts (`ADMIN_USERS=name:pin` in the function secret, or Supabase Auth).
+
 ---
 
 ## 2. Migrating an existing project
