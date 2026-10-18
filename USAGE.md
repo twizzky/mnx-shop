@@ -203,35 +203,43 @@ insert into products (id, cat, name, price, description, stock, seed, variant_gr
 
 ## 4. Adding product images
 
-### 4.1 Upload photos to Supabase Storage (recommended)
+Photos live in Supabase Storage — free hosting included in your existing project — and are attached to products through a hidden **admin page** at `/admin`.
 
-Supabase gives you free file hosting with public URLs, which is the easiest way to get real photos onto the live site.
+### 4.1 One-time setup
 
-1. Supabase dashboard → **Storage** → **New bucket**. Name it `product-images`, and toggle **Public bucket** on (so the photos load without authentication).
-2. Open the bucket → **Upload files** → drag in your product photos.
-3. Click any uploaded file → **Copy URL**. That's your public image URL, something like:
-   `https://xxxxx.supabase.co/storage/v1/object/public/product-images/keychain-1.jpg`
+The `/admin` page talks to a Supabase Edge Function called `admin-images`, which holds the admin PIN and your service-role key server-side. Without it the page shows an "not deployed yet" message. To set it up, follow **`SUPABASE_SETUP.md` §1.1**:
 
-### 4.2 Attach photos to a product
+```bash
+supabase functions deploy admin-images
+supabase secrets set ADMIN_PIN=choose-a-long-random-pin
+```
 
-Back in **Table Editor → products**, open the row for that product:
+### 4.2 Attaching photos
 
-- **Single photo:** paste the URL into `image_url`.
-- **Multiple photos (gallery):** click into `image_urls` and enter a JSON array of URLs:
-  ```json
-  ["https://xxxxx.supabase.co/storage/v1/object/public/product-images/keychain-1.jpg", "https://xxxxx.supabase.co/storage/v1/object/public/product-images/keychain-2.jpg"]
-  ```
-  The product detail page will show these as swappable thumbnails; the first one doubles as the grid thumbnail.
+1. Go to **`/admin`** on your site (type the path directly — there's no link to it anywhere on the shop).
+2. Enter your admin PIN. It stays remembered for the rest of that browser tab; **Lock** clears it.
+3. Pick a product from the dropdown. Tick **Only products with no photos** to work through everything that still shows placeholder art.
+4. Drag photos onto the drop zone, or tap it to choose files. You can drop several at once.
+5. Use the arrows to reorder — **the first photo is the one used on the product grid**, the rest become the gallery on the product page.
+6. Press **Save photos**. They appear on the live site immediately.
 
-If both `image_url` and `image_urls` are set, `image_urls` takes priority on the detail page (full gallery), while `image_url` alone is enough for the grid/card thumbnail.
+Large photos are resized in your browser before uploading, so a 10 MB phone photo won't fail or slow the page down.
 
-### 4.3 Using photos hosted elsewhere
+### 4.3 Variants
 
-Any public, direct image URL works — Instagram CDN links, Google Drive (set to "anyone with the link"), Cloudinary, imgur, etc. Supabase Storage is just the most convenient since it's already part of your setup.
+If the product belongs to a variant group (several colours or models listed as one product), the admin page offers **Apply to all N variants in this group**. Use it when the photos are identical across variants — leave it unticked when each variant has its own photos.
 
-### 4.4 If you skip this entirely
+### 4.4 Removing photos
 
-Products without `image_url`/`image_urls` fall back to auto-generated placeholder photos (built from the `seed` field), so the site never breaks or shows blank images — it just won't look finished until real photos are added.
+**Remove** takes a photo out of the list; press **Save photos** to publish that. The file itself stays in storage until you press **Delete N unused files**, which appears once your changes are saved. That two-step order is deliberate — removing and saving first means a catalog row can never end up pointing at a deleted file.
+
+### 4.5 Using photos hosted elsewhere
+
+Any public, direct image URL still works — Instagram CDN links, Cloudinary, imgur, etc. You can paste one into `image_url` in the Table Editor as before. Just note that the **Delete unused files** button only ever deletes files hosted in your own `product-images` bucket; it ignores anything else.
+
+### 4.6 If you skip this entirely
+
+Products without photos fall back to auto-generated placeholder images (built from the `seed` field), so the site never breaks or shows blank images — it just won't look finished until real photos are added.
 
 ---
 

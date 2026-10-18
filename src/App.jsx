@@ -14,6 +14,27 @@ import Search from './pages/Search';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import DeliveryPrices from './pages/DeliveryPrices';
+import AdminImages from './pages/AdminImages';
+
+/** The customer-facing site, wrapped in its own navbar/footer/transition. */
+function Storefront() {
+  return (
+    <>
+      <ScrollToTop />
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/shop" element={<Products />} />
+        <Route path="/product/:id" element={<ProductDetails />} />
+        <Route path="/search" element={<Search />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/checkout" element={<Checkout />} />
+        <Route path="/delivery-prices" element={<DeliveryPrices />} />
+      </Routes>
+      <Footer />
+    </>
+  );
+}
 
 export default function App() {
   return (
@@ -21,18 +42,13 @@ export default function App() {
       <DeliveryProvider>
         <CartProvider>
           <ToastProvider>
-            <ScrollToTop />
-            <Navbar />
+            {/* /admin is unlisted and renders bare — no nav, no footer, no
+                link back into the shop. Everything else falls through to
+                the storefront. */}
             <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/shop" element={<Products />} />
-              <Route path="/product/:id" element={<ProductDetails />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/delivery-prices" element={<DeliveryPrices />} />
+              <Route path="/admin" element={<AdminImages />} />
+              <Route path="*" element={<Storefront />} />
             </Routes>
-            <Footer />
             <Toast />
           </ToastProvider>
         </CartProvider>

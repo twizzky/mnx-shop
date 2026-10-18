@@ -89,12 +89,38 @@ Want a fuller product catalog to test with? Also run **`SEED_PRODUCTS_BULK.sql`*
 
 Then set up photo storage:
 
+The `admin-images` Edge Function creates the `product-images` bucket for you on first upload, so there's no manual step here. If you'd rather create it up front, do it from **Storage → New bucket** in the dashboard, or run:
+
 ```sql
--- Run in the SQL Editor, or do this via Storage → New bucket in the dashboard instead.
-insert into storage.buckets (id, name, public) values ('product-images', 'product-images', true);
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('product-images', 'product-images', true, 5242880,
+        '{image/jpeg,image/png,image/webp,image/gif,image/avif}')
+on conflict (id) do nothing;
 ```
 
-(See `USAGE.md` §4 for how to upload photos and attach them to products.)
+It must stay **public** — product photos are served to shoppers as plain `<img>` URLs with no auth (see `USAGE.md` §4).
+
+### 1.1 Product photo uploads (the /admin page)
+
+Attaching photos is done from `/admin` instead of the Table Editor. That page needs one Edge Function and one secret, because uploading photos means **writing** to `products` and `storage` — and both are deliberately write-locked to the public:
+
+- `products` has a select-only RLS policy (see §1). Customers can read the catalog; nothing about the public anon key can change it.
+- Supabase's RLS can't express "only people who know the PIN" — it sees the `anon` role, not a PIN. So an admin page that uploaded directly from the browser would need a permissive write policy that **every visitor** could then use to rewrite your catalog or push arbitrary files into your bucket.
+
+Holding the PIN in an Edge Function keeps both locks intact. Note this is the same reasoning that keeps your Anderson `api_token` server-side (§5.1) — and it's why the PIN is a Supabase secret rather than a `VITE_ADMIN_PIN` env var, which Vite would inline into the bundle where anyone could read it.
+
+From the project root, with the [Supabase CLI](https://supabase.com/docs/guides/cli) installed and linked:
+
+```bash
+supabase functions deploy admin-images
+supabase secrets set ADMIN_PIN=choose-a-long-random-pin
+```
+
+That's it. The function also needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, which Supabase injects automatically into every Edge Function — verify under **Edge Functions → admin-images → Details**.
+
+Use a long random PIN (a password-manager passphrase works well). It authenticates every photo upload and every change to your catalog, so treat it like a password. Rotating it is just `supabase secrets set ADMIN_PIN=<new value>` — anyone still holding the old one is locked out immediately.
+
+Once deployed, go to **`/admin`** on your site, enter the PIN, pick a product and drop photos in. See `USAGE.md` §4.
 
 ---
 
