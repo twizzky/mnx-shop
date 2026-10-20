@@ -251,7 +251,24 @@ Because a shared PIN can't identify anyone on its own, entries are attributed to
 
 The table is unreadable with the public anon key, so you can only review the log from `/admin` or by querying `admin_audit_log` with the service-role key — never from the Table Editor with a normal session.
 
-### 4.8 If you skip this entirely
+### 4.8 Product offers (promotions)
+
+Run promotions from **`/admin` → Offers**. You pick a product, a title, and one of three types:
+
+- **Multi-buy price** — "X for $N" (e.g. "2 for $15"). The discount applies to each full group of X.
+- **Buy X Get Y Free** — every (X+Y) items, Y are free (e.g. "Buy 2 Get 1 Free").
+- **Every 2nd item % off** — each pair: one full price, one discounted (e.g. "2nd item 50% off").
+
+You can set a start/end date and pause or delete an offer at any time. Paused or expired offers simply stop showing on the storefront.
+
+Active offers appear automatically:
+- on the product card (badge + line under the price),
+- on the product page (with the effective price for the chosen quantity),
+- in the cart and checkout (line totals and an "Offer savings" line).
+
+Because a shared PIN can't identify anyone on its own, offer changes are attributed to the name in the **Acting as** field — an honour-system label, not a verified identity. All offer writes are recorded in the activity log at the bottom of `/admin`.
+
+### 4.9 If you skip this entirely
 
 Products without photos fall back to auto-generated placeholder images (built from the `seed` field), so the site never breaks or shows blank images — it just won't look finished until real photos are added.
 

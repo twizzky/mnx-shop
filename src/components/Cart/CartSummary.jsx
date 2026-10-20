@@ -3,7 +3,7 @@ import { fmt } from '../../utils/format';
 import Button from '../UI/Button';
 import './CartSummary.css';
 
-export default function CartSummary({ total }) {
+export default function CartSummary({ total, cartSavings }) {
   return (
     <div className="cart-summary">
       <h3>Order Summary</h3>
@@ -11,6 +11,12 @@ export default function CartSummary({ total }) {
         <span>Subtotal</span>
         <span>{fmt(total)}</span>
       </div>
+      {cartSavings > 0 && (
+        <div className="sum-row co-saving">
+          <span>Offer savings</span>
+          <span>-{fmt(cartSavings)}</span>
+        </div>
+      )}
       <div className="sum-row">
         <span>Shipping</span>
         <span>Calculated at delivery</span>

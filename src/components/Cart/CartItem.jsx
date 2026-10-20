@@ -3,7 +3,7 @@ import { displayName } from '../../utils/variants';
 import QtyStepper from '../UI/QtyStepper';
 import './CartItem.css';
 
-export default function CartItem({ product, qty, lineTotal, onChangeQty, onRemove }) {
+export default function CartItem({ product, qty, lineTotal, offer, savings, breakdown, onChangeQty, onRemove }) {
   const [thumbnail] = productImages(product, 200);
 
   return (
@@ -13,6 +13,7 @@ export default function CartItem({ product, qty, lineTotal, onChangeQty, onRemov
       </div>
       <div>
         <div className="ci-name">{displayName(product)}</div>
+        {breakdown && <div className="ci-offer">{breakdown}</div>}
         <div className="ci-cat">{product.cat}</div>
         <QtyStepper
           value={qty}
@@ -23,6 +24,7 @@ export default function CartItem({ product, qty, lineTotal, onChangeQty, onRemov
       </div>
       <div className="ci-right">
         <div className="ci-total">{fmt(lineTotal)}</div>
+        {savings > 0 && <div className="ci-saving">Save {fmt(savings)}</div>}
         <button type="button" className="ci-remove" onClick={() => onRemove(product.id)}>
           Remove
         </button>

@@ -6,7 +6,7 @@ import EmptyCart from '../components/Cart/EmptyCart';
 import './Cart.css';
 
 export default function Cart() {
-  const { lineItems, cartTotal, changeQty, removeItem } = useCart();
+  const { lineItems, cartTotal, cartSavings, changeQty, removeItem } = useCart();
   const { showToast } = useToast();
 
   const handleRemove = (productId) => {
@@ -38,7 +38,7 @@ export default function Cart() {
                 />
               ))}
             </div>
-            <CartSummary total={cartTotal} />
+            <CartSummary total={cartTotal} cartSavings={cartSavings} />
           </div>
         )}
       </div>

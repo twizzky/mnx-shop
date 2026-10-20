@@ -1,20 +1,25 @@
 import { createContext, useEffect, useMemo, useState } from 'react';
 import { fetchProducts } from '../services/api';
+import { fetchActiveOffers } from '../services/offers';
 
 export const ProductsContext = createContext(null);
 
 export function ProductsProvider({ children }) {
   const [products, setProducts] = useState([]);
+  const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    fetchProducts().then((data) => {
-      if (!cancelled) {
-        setProducts(data);
-        setLoading(false);
+    Promise.all([fetchProducts(), fetchActiveOffers()]).then(
+      ([productsData, offersData]) => {
+        if (!cancelled) {
+          setProducts(productsData);
+          setOffers(offersData);
+          setLoading(false);
+        }
       }
-    });
+    );
     return () => {
       cancelled = true;
     };
@@ -42,8 +47,8 @@ export function ProductsProvider({ children }) {
   );
 
   const value = useMemo(
-    () => ({ products, loading, findProduct, applyImageUpdate }),
-    [products, loading, findProduct, applyImageUpdate]
+    () => ({ products, loading, findProduct, applyImageUpdate, offers }),
+    [products, loading, findProduct, applyImageUpdate, offers]
   );
 
   return <ProductsContext.Provider value={value}>{children}</ProductsContext.Provider>;

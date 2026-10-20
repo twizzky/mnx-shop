@@ -65,7 +65,7 @@ function matchCommuneForDesk(stopdeskLabel, communes) {
 }
 
 export default function Checkout() {
-  const { lineItems, cartTotal, clearCart } = useCart();
+  const { lineItems, cartTotal, cartSavings, clearCart } = useCart();
   const { showToast } = useToast();
   const { deliveryPrices, loading: deliveryLoading, findPrice } = useDelivery();
   const { products } = useProducts();
@@ -296,6 +296,7 @@ export default function Checkout() {
           <OrderSummary
             lineItems={lineItems}
             subtotal={cartTotal}
+            cartSavings={cartSavings}
             deliveryPrice={deliveryPrice}
             deliveryLabel={form.wilaya ? deliveryLabel : null}
           />

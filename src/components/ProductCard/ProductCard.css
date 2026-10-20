@@ -64,3 +64,31 @@
   font-size: 14px;
   color: var(--gray-600);
 }
+.pcard-offer {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: #2f6f4f;
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 2px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: all 0.3s var(--ease);
+  z-index: 2;
+}
+.pcard:hover .pcard-offer {
+  opacity: 1;
+  transform: translateY(0);
+}
+.pcard-offer-line {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #2f6f4f;
+  font-weight: 600;
+}

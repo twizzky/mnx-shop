@@ -80,6 +80,32 @@
   font-size: 20px;
   margin-bottom: 28px;
 }
+.pd-offer {
+  margin-bottom: 28px;
+  padding: 14px 16px;
+  background: #f1f9f5;
+  border: 1px solid #c7e3d8;
+  border-radius: 3px;
+}
+.pd-offer-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  color: #2f6f4f;
+  margin-bottom: 4px;
+  display: block;
+}
+.pd-offer-sub {
+  font-size: 13px;
+  color: var(--gray-600);
+  margin-bottom: 6px;
+  display: block;
+}
+.pd-offer-breakdown {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ink);
+}
 .pd-desc {
   font-weight: 300;
   line-height: 1.8;

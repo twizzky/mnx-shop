@@ -6,6 +6,7 @@ import { useProducts } from '../hooks/useProducts';
 import { getVariants, variantLabel } from '../utils/variants';
 import { useCart } from '../hooks/useCart';
 import { useToast } from '../hooks/useToast';
+import { findActiveOffer, applyOffer } from '../services/offers';
 import QtyStepper from '../components/UI/QtyStepper';
 import AvailabilityIndicator from '../components/UI/AvailabilityIndicator';
 import Button from '../components/UI/Button';
@@ -13,7 +14,7 @@ import './ProductDetails.css';
 
 export default function ProductDetails() {
   const { id } = useParams();
-  const { products, findProduct, loading } = useProducts();
+  const { products, findProduct, loading, offers } = useProducts();
   const { addItem } = useCart();
   const { showToast } = useToast();
 
@@ -42,6 +43,12 @@ export default function ProductDetails() {
   const canBuy = status.state !== 'out';
   const maxQty = Math.max(1, Number(product.stock) || 1);
   const variants = getVariants(products, product);
+
+  const { total: offerTotal, savings: offerSavings, breakdown } = applyOffer(
+    qty,
+    product.price,
+    offer
+  );
 
   const stepQty = (delta) => {
     setQty((v) => Math.min(Math.max(1, v + delta), canBuy ? maxQty : 1));
@@ -105,6 +112,17 @@ export default function ProductDetails() {
             <div className="pcard-cat">{product.cat}</div>
             <h1>{product.name}</h1>
             <div className="pd-price">{fmt(product.price)}</div>
+            {offer && (
+              <div className="pd-offer">
+                <span className="pd-offer-title">{offer.title}</span>
+                {offer.subtitle && <span className="pd-offer-sub">{offer.subtitle}</span>}
+                {breakdown && (
+                  <span className="pd-offer-breakdown">
+                    {breakdown} — {fmt(offerTotal)} for {qty} (save {fmt(offerSavings)})
+                  </span>
+                )}
+              </div>
+            )}
             <p className="pd-desc">{product.desc}</p>
 
             <AvailabilityIndicator stock={product.stock} />
