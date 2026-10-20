@@ -384,9 +384,9 @@ export default function AdminImages() {
 
   const offerSummary = (o) => {
     const c = o.config || {};
-    if (o.kind === 'x_for_price') return `${c.quantity} for $${Number(c.price).toFixed(2)}`;
-    if (o.kind === 'bogo') return `Buy ${c.buy} Get ${c.get} Free`;
-    if (o.kind === 'percent_off_second') return `2nd item ${c.percent}% off`;
+    if (o.kind === 'x_for_price') return `${Number(c.quantity) || 0} for $${(Number(c.price) || 0).toFixed(2)}`;
+    if (o.kind === 'bogo') return `Buy ${Number(c.buy) || 0} Get ${Number(c.get) || 0} Free`;
+    if (o.kind === 'percent_off_second') return `2nd item ${Number(c.percent) || 0}% off`;
     return o.kind;
   };
 

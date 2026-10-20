@@ -124,6 +124,8 @@ export function findActiveOffer(product, offers = []) {
 /**
  * Applies an offer to `qty` units at `unitPrice`.
  * Returns { total, savings, breakdown }.
+ *
+ * Never throws: a malformed config simply falls back to the regular price.
  */
 export function applyOffer(qty, unitPrice, offer) {
   if (!offer || qty < 1) {
@@ -134,19 +136,21 @@ export function applyOffer(qty, unitPrice, offer) {
   let breakdown = null;
 
   if (offer.kind === 'x_for_price') {
-    const n = Number(offer.config?.quantity) || 1;
-    const p = Number(offer.config?.price) || 0;
+    const c = offer.config || {};
+    const n = Number(c.quantity) || 0;
+    const p = Number(c.price) || 0;
     if (n > 0 && qty >= n) {
       const groups = Math.floor(qty / n);
       const rem = qty % n;
       total = groups * p + rem * unitPrice;
-      breakdown = `${n} for $${Number(p).toFixed(2)}${
+      breakdown = `${n} for $${p.toFixed(2)}${
         qty > n ? ` + ${rem} × $${unitPrice.toFixed(2)}` : ''
       }`;
     }
   } else if (offer.kind === 'bogo') {
-    const buy = Number(offer.config?.buy) || 1;
-    const get = Number(offer.config?.get) || 1;
+    const c = offer.config || {};
+    const buy = Number(c.buy) || 0;
+    const get = Number(c.get) || 0;
     const groupSize = buy + get;
     if (groupSize > 0 && qty >= groupSize) {
       const groups = Math.floor(qty / groupSize);
@@ -156,7 +160,8 @@ export function applyOffer(qty, unitPrice, offer) {
       breakdown = `Buy ${buy} Get ${get} Free`;
     }
   } else if (offer.kind === 'percent_off_second') {
-    const percent = Number(offer.config?.percent) || 0;
+    const c = offer.config || {};
+    const percent = Number(c.percent) || 0;
     if (percent > 0 && percent < 100 && qty >= 2) {
       const pairs = Math.floor(qty / 2);
       const singles = qty % 2;
