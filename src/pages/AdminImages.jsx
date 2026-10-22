@@ -255,6 +255,7 @@ export default function AdminImages() {
   const [auditEntries, setAuditEntries] = useState([]);
   const [auditUnavailable, setAuditUnavailable] = useState(false);
   const [editingOffer, setEditingOffer] = useState(null);
+  const [showOfferForm, setShowOfferForm] = useState(false);
   const [offerDraft, setOfferDraft] = useState({
     productId: '',
     title: '',
@@ -314,6 +315,7 @@ export default function AdminImages() {
           endsAt: '',
         });
     setEditingOffer(offer ? offer.id : null);
+    setShowOfferForm(true);
   };
 
   const saveOffer = async () => {
@@ -334,6 +336,7 @@ export default function AdminImages() {
       } else {
         await createOffer({ productId, title, subtitle, kind, config, active, startsAt, endsAt, pin });
       }
+      setShowOfferForm(false);
       setOfferDraft({
         productId: '',
         title: '',
@@ -703,7 +706,7 @@ export default function AdminImages() {
             </div>
 
             <div className="admin-offer-form">
-              {editingOffer || offerDraft.productId ? (
+              {showOfferForm ? (
                 <>
                   <form className="admin-form" onSubmit={(e) => e.preventDefault()}>
                     <label className="admin-field">
@@ -899,7 +902,7 @@ export default function AdminImages() {
                           disabled={offersBusy}>
                           {offersBusy ? 'Saving…' : editingOffer ? 'Update offer' : 'Create offer'}
                         </button>
-                        <button className="admin-btn" type="button" onClick={resetOfferDraft}
+                        <button className="admin-btn" type="button" onClick={() => setShowOfferForm(false)}
                           disabled={offersBusy}>
                           Cancel
                         </button>
