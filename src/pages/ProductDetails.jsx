@@ -44,6 +44,7 @@ export default function ProductDetails() {
   const maxQty = Math.max(1, Number(product.stock) || 1);
   const variants = getVariants(products, product);
 
+  const offer = findActiveOffer(product, offers);
   const { total: offerTotal, savings: offerSavings, breakdown } = applyOffer(
     qty,
     product.price,
