@@ -20,10 +20,7 @@ export default function Home() {
           <div>
             <span className="eyebrow">Welcome to MNX</span>
             <p style={{ marginTop: 16 }}>
-              MNX Accessories is a virtual haven for Algerian anime and accessory
-              fans — where you'll find all types of accessories and anime merch,
-              straight from your Pinterest feed to your hands. Follow us on
-              Instagram for more details.
+              Welcome to our shop !! 
             </p>
           </div>
           <div className="about-stats">
