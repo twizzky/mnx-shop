@@ -12,9 +12,9 @@ export default function Hero() {
         <span className="eyebrow">Keychains · Accessories · Nationwide Delivery</span>
         <h1>Keychains &amp; accessories, delivered anywhere in Algeria.</h1>
         <p>
-          MNX Accessories is a virtual haven for Algerian anime and accessory fans, where you'll find all types of accessories and anime merch
-          straight from your Pinterest feed to your hands. 
-          Follow us on Instagram for more details.
+          MNX ACCESSORIES is a virtual heaven for all algerian weirdos out there, where you will find all types of accessories and anime merch.
+          from your pintrest feed to your hands.
+          check our instagram page for more details!
         </p>
         <div className="hero-actions">
           <Button as={Link} to="/shop" variant="primary">
