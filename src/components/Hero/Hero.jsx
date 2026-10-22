@@ -12,8 +12,9 @@ export default function Hero() {
         <span className="eyebrow">Keychains · Accessories · Nationwide Delivery</span>
         <h1>Keychains &amp; accessories, delivered anywhere in Algeria.</h1>
         <p>
-          Welcome to MNX Accessories — your go-to page for anime keychains and gaming accessories. Browse the
-          latest drops below, or message us on Instagram or WhatsApp with any questions.
+          MNX Accessories is a virtual haven for Algerian anime and accessory fans, where you'll find all types of accessories and anime merch
+          straight from your Pinterest feed to your hands. 
+          Follow us on Instagram for more details.
         </p>
         <div className="hero-actions">
           <Button as={Link} to="/shop" variant="primary">
