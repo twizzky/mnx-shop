@@ -33,7 +33,7 @@ export default function Home() {
               <span>Categories</span>
             </div>
             <div className="stat">
-              <b>58</b>
+              <b>69</b>
               <span>Wilayas Delivered To</span>
             </div>
             <div className="stat">
