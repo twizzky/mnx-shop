@@ -46,6 +46,16 @@ footer {
 .footer-links a:hover {
   color: var(--paper);
 }
+.footer-links .feedback-link {
+  color: var(--paper);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+  text-underline-offset: 3px;
+}
+.footer-links .feedback-link:hover {
+  color: var(--paper);
+  text-decoration-color: var(--paper);
+}
 .footer-social {
   display: flex;
   gap: 14px;

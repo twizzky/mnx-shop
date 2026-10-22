@@ -43,6 +43,9 @@ export default function Footer() {
             <div className="footer-links">
               <span className="eyebrow">Info</span>
               <Link to="/delivery-prices">Delivery Prices</Link>
+              <a href="https://www.instagram.com/s/aGlnaGxpZ2h0OjE3ODY4OTA0MDQ0Mzk4MTI1?psln=MWg2dHZrYmNnaDEwcg==" target="_blank" rel="noopener noreferrer" className="feedback-link">
+                Client Feedback
+              </a>
             </div>
             <div className="footer-social">
               <a className="social-btn" href={SOCIAL_LINKS.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
