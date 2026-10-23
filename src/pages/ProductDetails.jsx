@@ -170,9 +170,8 @@ export default function ProductDetails() {
             )}
 
             <div className="pd-meta">
-              Ships within 2–4 days · DM us for bulk orders
+              Ships within 1–3 days
               <br />
-              Local pickup available on request
             </div>
           </div>
         </div>
