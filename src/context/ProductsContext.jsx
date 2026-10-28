@@ -11,13 +11,16 @@ export function ProductsProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([fetchProducts(), fetchActiveOffers()]).then(
-      ([productsData, offersData]) => {
-        if (!cancelled) {
-          setProducts(productsData);
-          setOffers(offersData);
-          setLoading(false);
-        }
+    Promise.allSettled([fetchProducts(), fetchActiveOffers()]).then(
+      ([productsResult, offersResult]) => {
+        if (cancelled) return;
+        const productsData =
+          productsResult.status === 'fulfilled' ? productsResult.value : [];
+        const offersData =
+          offersResult.status === 'fulfilled' ? offersResult.value : [];
+        setProducts(productsData);
+        setOffers(offersData);
+        setLoading(false);
       }
     );
     return () => {
