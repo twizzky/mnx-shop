@@ -2,16 +2,15 @@ import { useMemo } from 'react';
 import CategoryRow from '../components/CategorySection/CategoryRow';
 import SquiggleDivider from '../components/UI/SquiggleDivider';
 import { CATEGORIES } from '../utils/constants';
-import { dedupeVariants } from '../utils/variants';
 import { useProducts } from '../hooks/useProducts';
 import './Products.css';
 
 export default function Products() {
   const { products, loading } = useProducts();
 
-  // Variant groups show as a single post (representative row) — the
-  // colour/model picker lives on the product page itself.
-  const visibleProducts = useMemo(() => dedupeVariants(products), [products]);
+  // Every variant row is its own card on the shop page — variants are no
+  // longer collapsed, so every colour/model the client added shows up.
+  const visibleProducts = useMemo(() => products, [products]);
 
   // One row per active category, in the order defined in utils/constants.js.
   const productsByCategory = useMemo(

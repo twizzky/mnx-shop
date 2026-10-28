@@ -3,6 +3,7 @@ import { fmt, productImages } from '../../utils/format';
 import { useRevealOnScroll } from '../../hooks/useRevealOnScroll';
 import { useProducts } from '../../hooks/useProducts';
 import { findActiveOffer } from '../../services/offers';
+import { displayName } from '../../utils/variants';
 import StockBadge from '../UI/StockBadge';
 import './ProductCard.css';
 
@@ -29,7 +30,7 @@ export default function ProductCard({ product, index = 0 }) {
         </div>
         <div className="pcard-body">
           <div className="pcard-cat">{product.cat}</div>
-          <div className="pcard-name">{product.name}</div>
+          <div className="pcard-name">{displayName(product)}</div>
           <div className="pcard-price">{fmt(product.price)}</div>
           {offer && <div className="pcard-offer-line">{offer.subtitle || offer.title}</div>}
         </div>
