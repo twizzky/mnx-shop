@@ -9,7 +9,7 @@ import './Home.css';
 
 export default function Home() {
   const { products, loading } = useProducts();
-  const featured = dedupeVariants(products.filter((p) => p.featured));
+  const featured = dedupeVariants(products.filter((p) => p.featured === true));
 
   return (
     <main className="page">
