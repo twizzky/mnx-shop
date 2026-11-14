@@ -18,6 +18,14 @@ import {
   fetchAllOffers,
   updateOffer,
 } from '../services/offers';
+import {
+  fetchAllOrders,
+  updateOrderStatus,
+  ORDER_STATUS_LABELS,
+  ORDER_STATUS_COLORS,
+  formatPhone,
+  summarizeItems,
+} from '../services/orders';
 import './AdminImages.css';
 
 const PIN_STORAGE_KEY = 'mnx-admin-pin';
@@ -393,6 +401,26 @@ export default function AdminImages() {
     return o.kind;
   };
 
+  // ---------- orders state ----------
+  const [orders, setOrders] = useState([]);
+  const [ordersBusy, setOrdersBusy] = useState(false);
+  const [ordersError, setOrdersError] = useState('');
+
+  const refreshOrders = useCallback(async () => {
+    try {
+      const list = await fetchAllOrders(pin);
+      setOrders(list);
+      setOrdersError('');
+    } catch (err) {
+      setOrdersError(err.message || 'Could not load orders.');
+      setOrders([]);
+    }
+  }, [pin]);
+
+  useEffect(() => {
+    if (unlocked && tab === 'orders') refreshOrders();
+  }, [unlocked, tab, refreshOrders]);
+
   // ---------- render gate ----------
   if (!unlocked) {
     return (
@@ -472,6 +500,13 @@ export default function AdminImages() {
                 onClick={() => setTab('offers')}
               >
                 Offers
+              </button>
+              <button
+                className={`admin-tab${tab === 'orders' ? ' active' : ''}`}
+                type="button"
+                onClick={() => setTab('orders')}
+              >
+                Orders
               </button>
             </div>
             <button className="admin-btn" type="button" onClick={lock}>
@@ -1023,6 +1058,117 @@ export default function AdminImages() {
                 </ul>
               </section>
             )}
+          </>
+        )}
+        {/* ============ ORDERS TAB ============ */}
+        {tab === 'orders' && (
+          <>
+            {ordersError && <p className="admin-error">{ordersError}</p>}
+            {ordersBusy && orders.length === 0 && (
+              <p className="admin-muted center">Loading orders…</p>
+            )}
+
+            <div className="admin-controls admin-orders-header">
+              <div style={{ flex: 1 }}>
+                <span className="eyebrow" style={{ display: 'block', marginBottom: 6 }}>
+                  Order Management
+                </span>
+                <p className="admin-muted" style={{ margin: 0 }}>
+                  View all orders, track status, and update shipping progress.
+                </p>
+              </div>
+              {orders.length === 0 && !ordersBusy && (
+                <p className="admin-muted">No orders yet.</p>
+              )}
+            </div>
+
+            <div className="admin-orders-table-wrap">
+              <table className="admin-orders-table">
+                <thead>
+                  <tr>
+                    <th>Order #</th>
+                    <th>Customer</th>
+                    <th>Phone</th>
+                    <th>Wilaya / Commune</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((o) => {
+                    const items = summarizeItems(o);
+                    const date = new Date(o.created_at || 0).toLocaleString();
+                    return (
+                      <tr key={o.id} className="admin-orders-row">
+                        <td>
+                          <strong>{o.order_number}</strong>
+                        </td>
+                        <td>{o.customer_name}</td>
+                        <td>{formatPhone(o.phone)}</td>
+                        <td>
+                          {o.wilaya} / {o.commune || '—'}
+                        </td>
+                        <td style={{ maxWidth: '260px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {items}
+                        </td>
+                        <td>{o.total != null ? `DZD ${Number(o.total).toLocaleString()}` : '-'}</td>
+                        <td className="admin-orders-date">{date}</td>
+                        <td>
+                          <select
+                            className={`admin-orders-status ${
+                              o.status === 'no answer' ? 'no-answer' : o.status
+                            }`}
+                            value={o.status}
+                            onChange={(e) => {
+                              const newStatus = e.target.value;
+                              if (!newStatus) return;
+                              setOrdersBusy(true);
+                              setOrdersError('');
+                              updateOrderStatus({ id: o.id, status: newStatus, actor, pin })
+                                .then(() => {
+                                  setOrders((prev) =>
+                                    prev.map((p) => (p.id === o.id ? { ...p, status: newStatus } : p))
+                                  );
+                                  showToast(`Order ${o.order_number} updated`);
+                                })
+                                .catch((err) => {
+                                  setOrdersError(err.message || 'Could not update order.');
+                                })
+                                .finally(() => setOrdersBusy(false));
+                            }}
+                          >
+                            {Object.entries(ORDER_STATUS_LABELS).map(([key, label]) => (
+                              <option key={key} value={key}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          {o.tracking_number ? (
+                            <span className="admin-orders-tracking">
+                              📦 {o.tracking_number}
+                            </span>
+                          ) : (
+                            <span className="admin-muted">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {orders.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="admin-muted center">
+                        No orders found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </div>

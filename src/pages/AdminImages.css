@@ -497,3 +497,77 @@
 .offer-kind.percent_off_second { border-color: #e3d8c7; color: #8a5a14; background: #fbf6ef; }
 
 .admin-muted.center { text-align: center; padding: 30px 0; }
+
+/* ---------- Orders tab ---------- */
+.admin-orders-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.admin-orders-table-wrap {
+  overflow-x: auto;
+  margin-top: 10px;
+}
+
+.admin-orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+  font-size: 13px;
+}
+.admin-orders-table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray-600);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-soft);
+  white-space: nowrap;
+}
+.admin-orders-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.admin-orders-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.admin-orders-table tbody tr:hover {
+  background: var(--paper-soft);
+}
+.admin-orders-date {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gray-400);
+  white-space: nowrap;
+}
+.admin-orders-tracking {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink);
+}
+.admin-orders-status {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 6px 10px;
+  border-radius: 2px;
+  border: 1px solid;
+  background: var(--paper);
+  cursor: pointer;
+}
+.admin-orders-status.pending { border-color: var(--gray-400); color: var(--gray-600); }
+.admin-orders-status.confirmed { border-color: #639dd2; color: #1d4e89; }
+.admin-orders-status.shipped { border-color: #7fb069; color: #2f6f4f; }
+.admin-orders-status.delayed { border-color: #e0a050; color: #8a5a14; }
+.admin-orders-status.no-answer { border-color: #d97a7a; color: #a1261f; }
+.admin-orders-status.cancelled { border-color: var(--gray-400); color: var(--gray-600); }
