@@ -7,12 +7,12 @@ import StockBadge from '../UI/StockBadge';
 import './ProductCard.css';
 
 export default function ProductCard({ product, index = 0 }) {
-  const { offers } = useProducts();
+  const { products, offers } = useProducts();
   const [ref, isVisible] = useRevealOnScroll();
   // Same stagger pattern as the original: 0/60/120/180ms repeating every 4 cards.
   const transitionDelay = `${(index % 4) * 60}ms`;
   const [thumbnail] = productImages(product, 600);
-  const offer = findActiveOffer(product, offers);
+  const offer = findActiveOffer(product, offers, products);
 
   return (
     <div

@@ -32,6 +32,7 @@ const ALLOWED_STATUSES = new Set([
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-pin',
 };
 

@@ -67,6 +67,7 @@ export function summarizeItems(order) {
   if (!items.length) return order.items || '-';
   return items.map((i) => {
     const name = i.products?.name || 'Product';
-    return `${i.quantity}\u00d7 ${name}`;
+    const variant = i.products?.variant_name ? ` (${i.products.variant_name})` : '';
+    return `${i.quantity}\u00d7 ${name}${variant}`;
   }).join(', ');
 }

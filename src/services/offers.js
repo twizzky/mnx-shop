@@ -108,11 +108,21 @@ export async function deleteOffer({ id, pin }) {
   return callAdminOffers('delete', { id }, pin);
 }
 
-/** Finds the currently-active offer for a product, if any. */
-export function findActiveOffer(product, offers = []) {
+/** Finds the currently-active offer for a product, if any.
+ *
+ * If the product belongs to a variant group, the offer is matched against
+ * any product in that group — so a promotion created for one colour/model
+ * applies to the entire product (all variants), not just one row.
+ */
+export function findActiveOffer(product, offers = [], allProducts = []) {
   const now = new Date();
+  const targetIds = product.variant_group
+    ? allProducts
+        .filter((p) => p.variant_group === product.variant_group)
+        .map((p) => p.id)
+    : [product.id];
   return offers.find((o) => {
-    if (!o.active || o.product_id !== product.id) return false;
+    if (!o.active || !targetIds.includes(o.product_id)) return false;
     const starts = o.starts_at ? new Date(o.starts_at).getTime() : null;
     const ends = o.ends_at ? new Date(o.ends_at).getTime() : null;
     if (starts != null && now.getTime() < starts) return false;
