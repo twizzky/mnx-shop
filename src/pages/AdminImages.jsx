@@ -733,7 +733,7 @@ export default function AdminImages() {
                   checkout automatically.
                 </p>
               </div>
-              {offers.length === 0 && !offersBusy && (
+              {!offersBusy && (
                 <button className="admin-btn primary" type="button" onClick={() => resetOfferDraft()}>
                   Add offer
                 </button>
