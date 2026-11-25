@@ -45,6 +45,7 @@ async function callAdminOffers(action, extraFields, pin) {
       method: 'POST',
       headers: adminHeaders(pin),
       body: form,
+      credentials: 'include',
     });
   } catch {
     throw new Error('Could not reach the offer server.');
@@ -56,7 +57,7 @@ async function callAdminOffers(action, extraFields, pin) {
     payload = null;
   }
   if (!res.ok) {
-    if (res.status === 401) throw new Error('Incorrect PIN.');
+    if (res.status === 401) throw new Error('Not authenticated.');
     if (res.status === 404) {
       throw new Error('The admin-offers function is not deployed yet.');
     }

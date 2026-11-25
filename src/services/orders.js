@@ -19,14 +19,14 @@ async function callAdminOrders(method, queryOrBody, pin) {
   }
   let res;
   try {
-    res = await fetch(url.toString(), { method, headers: adminHeaders(pin) });
+    res = await fetch(url.toString(), { method, headers: adminHeaders(pin), credentials: 'include' });
   } catch {
     throw new Error('Could not reach the order server.');
   }
   let payload = null;
   try { payload = await res.json(); } catch { payload = null; }
   if (!res.ok) {
-    if (res.status === 401) throw new Error('Incorrect PIN.');
+    if (res.status === 401) throw new Error('Not authenticated.');
     throw new Error(payload?.error || `Failed (HTTP ${res.status}).`);
   }
   return payload;

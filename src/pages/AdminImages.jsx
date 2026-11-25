@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useProducts } from '../hooks/useProducts';
-import { useToast } from '../hooks/useToast';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useProducts } from "../hooks/useProducts";
+import { useToast } from "../hooks/useToast";
 import {
   MAX_FILES_PER_UPLOAD,
   deleteProductImages,
@@ -10,14 +10,14 @@ import {
   shrinkImage,
   uploadProductImages,
   validateImageFile,
-} from '../services/storage';
+} from "../services/storage";
 import {
   createOffer,
   deleteOffer,
   fetchAdminActivity,
   fetchAllOffers,
   updateOffer,
-} from '../services/offers';
+} from "../services/offers";
 import {
   fetchAllOrders,
   updateOrderStatus,
@@ -25,32 +25,120 @@ import {
   ORDER_STATUS_COLORS,
   formatPhone,
   summarizeItems,
-} from '../services/orders';
-import './AdminImages.css';
+} from "../services/orders";
+import { adminLogin, adminLogout, adminSession, admin2faVerify, admin2faRecovery } from "../services/auth";
+import "./AdminImages.css";
 
-const PIN_STORAGE_KEY = 'mnx-admin-pin';
-const ACTOR_STORAGE_KEY = 'mnx-admin-actor';
+const ACTOR_STORAGE_KEY = "mnx-admin-actor";
 
 export default function AdminImages() {
   const { products, loading, applyImageUpdate } = useProducts();
   const { showToast } = useToast();
 
-  const [pin, setPin] = useState(() => sessionStorage.getItem(PIN_STORAGE_KEY) || '');
-  const [pinInput, setPinInput] = useState('');
-  const [unlocked, setUnlocked] = useState(false);
+  // ---------- Auth state ----------
+  const [authState, setAuthState] = useState({
+    status: "checking", // 'checking' | 'unauthenticated' | 'authenticated' | 'mfa_required'
+    user: null,
+    error: "",
+  });
 
-  const [actor, setActor] = useState(() => sessionStorage.getItem(ACTOR_STORAGE_KEY) || '');
-  const [actorInput, setActorInput] = useState('');
+  const [actor, setActor] = useState(() => sessionStorage.getItem(ACTOR_STORAGE_KEY) || "");
+  const [actorInput, setActorInput] = useState("");
+  const [tab, setTab] = useState("photos"); // 'photos' | 'offers' | 'orders'
 
-  const [tab, setTab] = useState('photos'); // 'photos' | 'offers'
+  // ---------- Auth actions ----------
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("admin-email").value;
+    const password = document.getElementById("admin-password").value;
+    if (!email || !password) {
+      setAuthState((prev) => ({ ...prev, error: "Email and password are required." }));
+      return;
+    }
+    setAuthState((prev) => ({ ...prev, error: "" }));
 
-  // ---------- photos state ----------
-  const [selectedId, setSelectedId] = useState('');
+    const result = await adminLogin(email, password);
+    if (result.ok) {
+      if (result.mfa_required) {
+        setAuthState({ status: "mfa_required", user: result.user, error: "" });
+      } else {
+        setAuthState({ status: "authenticated", user: result.user, error: "" });
+      }
+    } else {
+      setAuthState((prev) => ({ ...prev, error: result.error || "Invalid credentials." }));
+    }
+  };
+
+  const handle2FAVerify = async (e) => {
+    e.preventDefault();
+    const code = document.getElementById("admin-2fa-code").value;
+    if (!code) {
+      setAuthState((prev) => ({ ...prev, error: "Enter the verification code." }));
+      return;
+    }
+
+    const result = await admin2faVerify(code);
+    if (result.ok) {
+      setAuthState({ status: "authenticated", user: authState.user, error: "" });
+    } else {
+      setAuthState((prev) => ({ ...prev, error: result.error || "Invalid code." }));
+    }
+  };
+
+  const handle2FARecovery = async (e) => {
+    e.preventDefault();
+    const code = document.getElementById("admin-recovery-code").value;
+    if (!code) {
+      setAuthState((prev) => ({ ...prev, error: "Enter the recovery code." }));
+      return;
+    }
+
+    const result = await admin2faRecovery(code);
+    if (result.ok) {
+      setAuthState({ status: "authenticated", user: authState.user, error: "" });
+    } else {
+      setAuthState((prev) => ({ ...prev, error: result.error || "Invalid recovery code." }));
+    }
+  };
+
+  const handleLogout = async () => {
+    await adminLogout();
+    setAuthState({ status: "unauthenticated", user: null, error: "" });
+    setActor("");
+    setActorInput("");
+    setTab("photos");
+    sessionStorage.removeItem(ACTOR_STORAGE_KEY);
+  };
+
+  // Check session on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const result = await adminSession();
+      if (!cancelled) {
+        if (result.ok) {
+          setAuthState({
+            status: result.mfa_required ? "mfa_required" : "authenticated",
+            user: result.user,
+            error: "",
+          });
+        } else {
+          setAuthState({ status: "unauthenticated", user: null, error: "" });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ---------- Photos state ----------
+  const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState([]);
   const [savedUrls, setSavedUrls] = useState([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [applyToGroup, setApplyToGroup] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -82,57 +170,17 @@ export default function AdminImages() {
   }, [products, onlyMissing]);
 
   const lock = () => {
-    sessionStorage.removeItem(PIN_STORAGE_KEY);
-    setPin('');
-    setUnlocked(false);
-    setPinInput('');
-    sessionStorage.removeItem(ACTOR_STORAGE_KEY);
-    setActor('');
-    setActorInput('');
-    setTab('photos');
+    handleLogout();
   };
 
-  const submitPin = (e) => {
-    e.preventDefault();
-    const trimmed = pinInput.trim();
-    if (!trimmed) return;
-    sessionStorage.setItem(PIN_STORAGE_KEY, trimmed);
-    setPin(trimmed);
-    setUnlocked(true);
-    setPinInput('');
-    setError('');
-  };
-
-  useEffect(() => {
-    if (!selected) {
-      setDraft([]);
-      setSavedUrls([]);
-      setBroken(new Set());
-      setOrphansCleaned(false);
-      setError('');
-      setNotice('');
-    } else {
-      const existing = Array.isArray(selected.image_urls) && selected.image_urls.length
-        ? [...selected.image_urls]
-        : selected.image_url
-          ? [selected.image_url]
-          : [];
-      setDraft(existing);
-      setSavedUrls(existing);
-      setBroken(new Set());
-      setOrphansCleaned(false);
-      setError('');
-      setNotice('');
-    }
-  }, [selected]);
-
+  // Prevent navigation away during drag
   useEffect(() => {
     const prevent = (e) => e.preventDefault();
-    window.addEventListener('dragover', prevent);
-    window.addEventListener('drop', prevent);
+    window.addEventListener("dragover", prevent);
+    window.addEventListener("drop", prevent);
     return () => {
-      window.removeEventListener('dragover', prevent);
-      window.removeEventListener('drop', prevent);
+      window.removeEventListener("dragover", prevent);
+      window.removeEventListener("drop", prevent);
     };
   }, []);
 
@@ -144,12 +192,12 @@ export default function AdminImages() {
 
     const problems = incoming.map(validateImageFile).filter(Boolean);
     if (problems.length) {
-      setError(problems.join(' '));
-      setNotice('');
+      setError(problems.join(" "));
+      setNotice("");
       return;
     }
-    setError('');
-    setNotice('');
+    setError("");
+    setNotice("");
     setBusy(true);
     try {
       const accepted = incoming.slice(0, MAX_FILES_PER_UPLOAD);
@@ -166,26 +214,25 @@ export default function AdminImages() {
       const { urls, skipped } = await uploadProductImages({
         productId: selected.id,
         files: prepared,
-        pin,
         actor,
       });
       setDraft((prev) => [...prev, ...urls]);
       setNotice(
         [
           skipped.length
-            ? `Uploaded ${urls.length}. Could not read: ${skipped.join(', ')}.`
-            : `Uploaded ${urls.length} photo${urls.length === 1 ? '' : 's'}.`,
-          dropped ? `Skipped ${dropped} beyond the ${MAX_FILES_PER_UPLOAD}-at-a-time limit.` : '',
-          'Press Save to publish.',
+            ? `Uploaded ${urls.length}. Could not read: ${skipped.join(", ")}.`
+            : `Uploaded ${urls.length} photo${urls.length === 1 ? "" : "s"}.`,
+          dropped ? `Skipped ${dropped} beyond the ${MAX_FILES_PER_UPLOAD}-at-a-time limit.` : "",
+          "Press Save to publish.",
         ]
           .filter(Boolean)
-          .join(' ')
+          .join(" ")
       );
     } catch (err) {
-      setError(err.message || 'Upload failed.');
+      setError(err.message || "Upload failed.");
     } finally {
       setBusy(false);
-      if (fileInput.current) fileInput.current.value = '';
+      if (fileInput.current) fileInput.current.value = "";
     }
   };
 
@@ -220,20 +267,20 @@ export default function AdminImages() {
   const save = async () => {
     if (!selected) return;
     setBusy(true);
-    setError('');
+    setError("");
     try {
-      await saveProductImages({ productIds: targetIds, urls: draft, pin, actor });
+      await saveProductImages({ productIds: targetIds, urls: draft, actor });
       applyImageUpdate(targetIds, draft);
       setSavedUrls(draft);
       setNotice(
         targetIds.length > 1
           ? `Saved across ${targetIds.length} variants.`
-          : 'Saved. The storefront now uses these photos.'
+          : "Saved. The storefront now uses these photos."
       );
-      showToast('Photos saved');
+      showToast("Photos saved");
       refreshOffers();
     } catch (err) {
-      setError(err.message || 'Could not save the photos.');
+      setError(err.message || "Could not save the photos.");
     } finally {
       setBusy(false);
     }
@@ -241,14 +288,14 @@ export default function AdminImages() {
 
   const purgeOrphans = async () => {
     setBusy(true);
-    setError('');
+    setError("");
     try {
-      await deleteProductImages({ urls: orphans, pin, actor });
-      setNotice(`Deleted ${orphans.length} unused file${orphans.length === 1 ? '' : 's'}.`);
+      await deleteProductImages({ urls: orphans, actor });
+      setNotice(`Deleted ${orphans.length} unused file${orphans.length === 1 ? "" : "s"}.`);
       setOrphansCleaned(true);
       refreshOffers();
     } catch (err) {
-      setError(err.message || 'Could not delete those files.');
+      setError(err.message || "Could not delete those files.");
     } finally {
       setBusy(false);
     }
@@ -256,44 +303,44 @@ export default function AdminImages() {
 
   const pendingOrphans = dirty || orphansCleaned ? [] : orphans;
 
-  // ---------- offers state ----------
+  // ---------- Offers state ----------
   const [offers, setOffers] = useState([]);
   const [offersBusy, setOffersBusy] = useState(false);
-  const [offersError, setOffersError] = useState('');
+  const [offersError, setOffersError] = useState("");
   const [auditEntries, setAuditEntries] = useState([]);
   const [auditUnavailable, setAuditUnavailable] = useState(false);
   const [editingOffer, setEditingOffer] = useState(null);
   const [showOfferForm, setShowOfferForm] = useState(false);
   const [offerDraft, setOfferDraft] = useState({
-    productId: '',
-    title: '',
-    subtitle: '',
-    kind: 'x_for_price',
+    productId: "",
+    title: "",
+    subtitle: "",
+    kind: "x_for_price",
     config: {},
     active: true,
-    startsAt: '',
-    endsAt: '',
+    startsAt: "",
+    endsAt: "",
   });
 
   const refreshOffers = useCallback(async () => {
     try {
       const [list, activity] = await Promise.all([
-        fetchAllOffers(pin),
-        fetchAdminActivity({ pin }),
+        fetchAllOffers(""),
+        fetchAdminActivity({ pin: "" }),
       ]);
       setOffers(list);
       setAuditEntries(activity.entries);
       setAuditUnavailable(activity.unavailable);
-      setOffersError('');
+      setOffersError("");
     } catch (err) {
-      setOffersError(err.message || 'Could not load offers.');
+      setOffersError(err.message || "Could not load offers.");
       setOffers([]);
     }
-  }, [pin]);
+  }, []);
 
   useEffect(() => {
-    if (unlocked && tab === 'offers') refreshOffers();
-  }, [unlocked, tab, refreshOffers]);
+    if (authState.status === "authenticated" && tab === "offers") refreshOffers();
+  }, [authState.status, tab, refreshOffers]);
 
   const productForOffer = useMemo(
     () => new Map(products.map((p) => [p.id, p.name])),
@@ -304,23 +351,23 @@ export default function AdminImages() {
     setOfferDraft(offer
       ? {
           productId: offer.product_id,
-          title: offer.title || '',
-          subtitle: offer.subtitle || '',
+          title: offer.title || "",
+          subtitle: offer.subtitle || "",
           kind: offer.kind,
           config: offer.config || {},
           active: offer.active,
-          startsAt: offer.starts_at ? offer.starts_at.slice(0, 16) : '',
-          endsAt: offer.ends_at ? offer.ends_at.slice(0, 16) : '',
+          startsAt: offer.starts_at ? offer.starts_at.slice(0, 16) : "",
+          endsAt: offer.ends_at ? offer.ends_at.slice(0, 16) : "",
         }
       : {
-          productId: '',
-          title: '',
-          subtitle: '',
-          kind: 'x_for_price',
+          productId: "",
+          title: "",
+          subtitle: "",
+          kind: "x_for_price",
           config: {},
           active: true,
-          startsAt: '',
-          endsAt: '',
+          startsAt: "",
+          endsAt: "",
         });
     setEditingOffer(offer ? offer.id : null);
     setShowOfferForm(true);
@@ -329,52 +376,52 @@ export default function AdminImages() {
   const saveOffer = async () => {
     const { productId, title, subtitle, kind, config, active, startsAt, endsAt } = offerDraft;
     if (!productId || !title || !kind) {
-      setOffersError('Product, title and type are required.');
+      setOffersError("Product, title and type are required.");
       return;
     }
     setOffersBusy(true);
-    setOffersError('');
+    setOffersError("");
     try {
       if (editingOffer) {
         await updateOffer({
           id: editingOffer,
           updates: { productId, title, subtitle, kind, config, active, startsAt, endsAt },
-          pin,
+          pin: "",
         });
       } else {
-        await createOffer({ productId, title, subtitle, kind, config, active, startsAt, endsAt, pin });
+        await createOffer({ productId, title, subtitle, kind, config, active, startsAt, endsAt, pin: "" });
       }
       setShowOfferForm(false);
       setOfferDraft({
-        productId: '',
-        title: '',
-        subtitle: '',
-        kind: 'x_for_price',
+        productId: "",
+        title: "",
+        subtitle: "",
+        kind: "x_for_price",
         config: {},
         active: true,
-        startsAt: '',
-        endsAt: '',
+        startsAt: "",
+        endsAt: "",
       });
       setEditingOffer(null);
       await refreshOffers();
-      showToast('Offer saved');
+      showToast("Offer saved");
     } catch (err) {
-      setOffersError(err.message || 'Could not save the offer.');
+      setOffersError(err.message || "Could not save the offer.");
     } finally {
       setOffersBusy(false);
     }
   };
 
   const removeOffer = async (id) => {
-    if (!window.confirm('Delete this offer?')) return;
+    if (!window.confirm("Delete this offer?")) return;
     setOffersBusy(true);
-    setOffersError('');
+    setOffersError("");
     try {
-      await deleteOffer({ id, pin });
+      await deleteOffer({ id, pin: "" });
       await refreshOffers();
-      showToast('Offer deleted');
+      showToast("Offer deleted");
     } catch (err) {
-      setOffersError(err.message || 'Could not delete the offer.');
+      setOffersError(err.message || "Could not delete the offer.");
     } finally {
       setOffersBusy(false);
     }
@@ -382,12 +429,12 @@ export default function AdminImages() {
 
   const toggleOffer = async (id, active) => {
     setOffersBusy(true);
-    setOffersError('');
+    setOffersError("");
     try {
-      await updateOffer({ id, updates: { active: !active }, pin });
+      await updateOffer({ id, updates: { active: !active }, pin: "" });
       await refreshOffers();
     } catch (err) {
-      setOffersError(err.message || 'Could not update offer.');
+      setOffersError(err.message || "Could not update offer.");
     } finally {
       setOffersBusy(false);
     }
@@ -395,60 +442,121 @@ export default function AdminImages() {
 
   const offerSummary = (o) => {
     const c = o.config || {};
-    if (o.kind === 'x_for_price') return `${Number(c.quantity) || 0} for $${(Number(c.price) || 0).toFixed(2)}`;
-    if (o.kind === 'bogo') return `Buy ${Number(c.buy) || 0} Get ${Number(c.get) || 0} Free`;
-    if (o.kind === 'percent_off_second') return `2nd item ${Number(c.percent) || 0}% off`;
+    if (o.kind === "x_for_price") return `${Number(c.quantity) || 0} for $${(Number(c.price) || 0).toFixed(2)}`;
+    if (o.kind === "bogo") return `Buy ${Number(c.buy) || 0} Get ${Number(c.get) || 0} Free`;
+    if (o.kind === "percent_off_second") return `2nd item ${Number(c.percent) || 0}% off`;
     return o.kind;
   };
 
-  // ---------- orders state ----------
+  // ---------- Orders state ----------
   const [orders, setOrders] = useState([]);
   const [ordersBusy, setOrdersBusy] = useState(false);
-  const [ordersError, setOrdersError] = useState('');
+  const [ordersError, setOrdersError] = useState("");
 
   const refreshOrders = useCallback(async () => {
     try {
-      const list = await fetchAllOrders(pin);
+      const list = await fetchAllOrders("");
       setOrders(list);
-      setOrdersError('');
+      setOrdersError("");
     } catch (err) {
-      setOrdersError(err.message || 'Could not load orders.');
+      setOrdersError(err.message || "Could not load orders.");
       setOrders([]);
     }
-  }, [pin]);
+  }, []);
 
   useEffect(() => {
-    if (unlocked && tab === 'orders') refreshOrders();
-  }, [unlocked, tab, refreshOrders]);
+    if (authState.status === "authenticated" && tab === "orders") refreshOrders();
+  }, [authState.status, tab, refreshOrders]);
 
-  // ---------- render gate ----------
-  if (!unlocked) {
+  // ---------- Render ----------
+  // Not authenticated yet - show login
+  if (authState.status === "unauthenticated") {
     return (
       <div className="admin-page">
-        <form className="admin-pin" onSubmit={submitPin}>
+        <form className="admin-pin" onSubmit={handleLogin}>
           <span className="eyebrow">MNX</span>
-          <h1 className="shop-title">Admin</h1>
-          <p className="admin-muted">Enter the admin PIN to manage product photos & offers.</p>
-          <input
-            className="admin-input"
-            type="password"
-            value={pinInput}
-            onChange={(e) => setPinInput(e.target.value)}
-            placeholder="PIN"
-            aria-label="Admin PIN"
-            autoComplete="current-password"
-            autoFocus
-          />
-          <button className="admin-btn primary" type="submit" disabled={!pinInput.trim()}>
-            Unlock
+          <h1 className="shop-title">Admin Login</h1>
+          <p className="admin-muted">Sign in to manage product photos, offers, and orders.</p>
+          <div className="admin-field">
+            <label htmlFor="admin-email">Email address</label>
+            <input
+              id="admin-email"
+              className="admin-input"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="admin-password">Password</label>
+            <input
+              id="admin-password"
+              className="admin-input"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          </div>
+          <button className="admin-btn primary" type="submit">
+            Sign in
           </button>
-          {error && <p className="admin-error">{error}</p>}
+          {authState.error && <p className="admin-error">{authState.error}</p>}
         </form>
       </div>
     );
   }
 
-  // ---------- editor ----------
+  // 2FA required - show verification
+  if (authState.status === "mfa_required") {
+    return (
+      <div className="admin-page">
+        <form className="admin-pin" onSubmit={handle2FAVerify}>
+          <span className="eyebrow">MNX</span>
+          <h1 className="shop-title">Two-Factor Authentication</h1>
+          <p className="admin-muted">Enter the verification code from your authenticator app.</p>
+          <div className="admin-field">
+            <label htmlFor="admin-2fa-code">6-digit code</label>
+            <input
+              id="admin-2fa-code"
+              className="admin-input"
+              type="text"
+              maxLength="6"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              required
+            />
+          </div>
+          <button className="admin-btn primary" type="submit">
+            Verify
+          </button>
+          <button
+            className="admin-btn"
+            type="button"
+            onClick={() => setAuthState((prev) => ({ ...prev, status: "unauthenticated" }))}
+          >
+            Back to login
+          </button>
+          <div className="admin-field">
+            <label htmlFor="admin-recovery-code">Or use a recovery code</label>
+            <input
+              id="admin-recovery-code"
+              className="admin-input"
+              type="text"
+              maxLength="8"
+              autoComplete="off"
+            />
+          </div>
+          <button className="admin-btn" type="button" onClick={handle2FARecovery}>
+            Use recovery code
+          </button>
+          {authState.error && <p className="admin-error">{authState.error}</p>}
+        </form>
+      </div>
+    );
+  }
+
+  // ---------- Authenticated editor ----------
   return (
     <div className="admin-page">
       <header className="admin-head">
@@ -458,66 +566,18 @@ export default function AdminImages() {
             <h1 className="shop-title">Store Manager</h1>
           </div>
           <div className="admin-head-actions">
-            <form
-              className="admin-who"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const name = actorInput || actor;
-                setActor(name);
-                if (name) sessionStorage.setItem(ACTOR_STORAGE_KEY, name);
-                else sessionStorage.removeItem(ACTOR_STORAGE_KEY);
-                setActorInput(name);
-              }}
-            >
-              <label htmlFor="admin-actor">Acting as</label>
-              <input
-                id="admin-actor"
-                className="admin-input"
-                value={actorInput}
-                placeholder={actor || 'Your name'}
-                onChange={(e) => setActorInput(e.target.value)}
-                onBlur={() => {
-                  const name = actorInput || actor;
-                  setActor(name);
-                  if (name) sessionStorage.setItem(ACTOR_STORAGE_KEY, name);
-                  else sessionStorage.removeItem(ACTOR_STORAGE_KEY);
-                  setActorInput(name);
-                }}
-                maxLength={60}
-              />
-            </form>
-            <div className="admin-tabs">
-              <button
-                className={`admin-tab${tab === 'photos' ? ' active' : ''}`}
-                type="button"
-                onClick={() => setTab('photos')}
-              >
-                Photos
-              </button>
-              <button
-                className={`admin-tab${tab === 'offers' ? ' active' : ''}`}
-                type="button"
-                onClick={() => setTab('offers')}
-              >
-                Offers
-              </button>
-              <button
-                className={`admin-tab${tab === 'orders' ? ' active' : ''}`}
-                type="button"
-                onClick={() => setTab('orders')}
-              >
-                Orders
-              </button>
-            </div>
-            <button className="admin-btn" type="button" onClick={lock}>
-              Lock
+            <span className="admin-muted">
+              Signed in as {authState.user?.email}
+            </span>
+            <button className="admin-btn" type="button" onClick={handleLogout}>
+              Logout
             </button>
           </div>
         </div>
       </header>
 
       <div className="wrap admin-body">
-        {!configured && tab === 'photos' && (
+        {!configured && tab === "photos" && (
           <p className="admin-error">
             Supabase isn&rsquo;t configured (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY missing), so
             photos can&rsquo;t be uploaded.
@@ -525,7 +585,7 @@ export default function AdminImages() {
         )}
 
         {/* ============ PHOTOS TAB ============ */}
-        {tab === 'photos' && (
+        {tab === "photos" && (
           <>
             {error && <p className="admin-error">{error}</p>}
             {notice && !error && <p className="admin-notice">{notice}</p>}
@@ -540,12 +600,12 @@ export default function AdminImages() {
                   disabled={loading}
                 >
                   <option value="">
-                    {loading ? 'Loading products…' : '— choose a product —'}
+                    {loading ? "Loading products…" : "— choose a product —"}
                   </option>
                   {visibleProducts.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
-                      {p.variant_name ? ` (${p.variant_name})` : ''} · {p.cat} · {p.id}
+                      {p.variant_name ? ` (${p.variant_name})` : ""} · {p.cat} · {p.id}
                     </option>
                   ))}
                 </select>
@@ -577,7 +637,7 @@ export default function AdminImages() {
             {selected ? (
               <>
                 <div
-                  className={`admin-drop${dragging ? ' dragging' : ''}${busy ? ' busy' : ''}`}
+                  className={`admin-drop${dragging ? " dragging" : ""}${busy ? " busy" : ""}`}
                   onDragEnter={(e) => {
                     e.preventDefault();
                     dragDepth.current += 1;
@@ -599,7 +659,7 @@ export default function AdminImages() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                    if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       fileInput.current?.click();
                     }
@@ -613,7 +673,7 @@ export default function AdminImages() {
                     hidden
                     onChange={(e) => handleFiles(e.target.files)}
                   />
-                  <strong>{busy ? 'Uploading…' : 'Drop photos here'}</strong>
+                  <strong>{busy ? "Uploading…" : "Drop photos here"}</strong>
                   <span>or tap to choose · up to {MAX_FILES_PER_UPLOAD} at a time · JPG PNG WEBP</span>
                 </div>
 
@@ -625,7 +685,7 @@ export default function AdminImages() {
                   <>
                     <ul className="admin-grid">
                       {draft.map((url, i) => (
-                        <li key={url} className={`admin-tile${broken.has(url) ? ' broken' : ''}`}>
+                        <li key={url} className={`admin-tile${broken.has(url) ? " broken" : ""}`}>
                           <div className="admin-thumb">
                             <img
                               src={url}
@@ -660,7 +720,7 @@ export default function AdminImages() {
                               type="button"
                               onClick={() => {
                                 navigator.clipboard?.writeText(url);
-                                showToast('URL copied');
+                                showToast("URL copied");
                               }}
                             >
                               Copy
@@ -684,7 +744,7 @@ export default function AdminImages() {
                         onClick={save}
                         disabled={busy || !dirty}
                       >
-                        {busy ? 'Saving…' : 'Save photos'}
+                        {busy ? "Saving…" : "Save photos"}
                       </button>
                       {dirty && <span className="admin-muted">Unsaved changes</span>}
                       {!dirty && <span className="admin-muted">Up to date</span>}
@@ -699,7 +759,7 @@ export default function AdminImages() {
                           disabled={busy}
                         >
                           Delete {pendingOrphans.length} unused file
-                          {pendingOrphans.length === 1 ? '' : 's'}
+                          {pendingOrphans.length === 1 ? "" : "s"}
                         </button>
                         <span className="admin-muted">
                           Removed from the list but still in storage — save first, then delete to free
@@ -717,14 +777,16 @@ export default function AdminImages() {
         )}
 
         {/* ============ OFFERS TAB ============ */}
-        {tab === 'offers' && (
+        {tab === "offers" && (
           <>
             {offersError && <p className="admin-error">{offersError}</p>}
-            {offersBusy && offers.length === 0 && <p className="admin-muted center">Loading offers…</p>}
+            {offersBusy && offers.length === 0 && (
+              <p className="admin-muted center">Loading offers…</p>
+            )}
 
-            <div className="admin-controls">
+            <div className="admin-controls admin-orders-header">
               <div style={{ flex: 1 }}>
-                <span className="eyebrow" style={{ display: 'block', marginBottom: 6 }}>
+                <span className="eyebrow" style={{ display: "block", marginBottom: 6 }}>
                   Product offers
                 </span>
                 <p className="admin-muted" style={{ margin: 0 }}>
@@ -808,7 +870,7 @@ export default function AdminImages() {
                     </label>
 
                     <div className="admin-offer-config">
-                      {offerDraft.kind === 'x_for_price' && (
+                      {offerDraft.kind === "x_for_price" && (
                         <>
                           <label className="admin-field">
                             <span>Buy this many</span>
@@ -816,7 +878,7 @@ export default function AdminImages() {
                               className="admin-input"
                               type="number"
                               min="1"
-                              value={offerDraft.config.quantity || ''}
+                              value={offerDraft.config.quantity || ""}
                               onChange={(e) =>
                                 setOfferDraft((prev) => ({
                                   ...prev,
@@ -832,7 +894,7 @@ export default function AdminImages() {
                               type="number"
                               min="0"
                               step="0.01"
-                              value={offerDraft.config.price || ''}
+                              value={offerDraft.config.price || ""}
                               onChange={(e) =>
                                 setOfferDraft((prev) => ({
                                   ...prev,
@@ -843,7 +905,7 @@ export default function AdminImages() {
                           </label>
                         </>
                       )}
-                      {offerDraft.kind === 'bogo' && (
+                      {offerDraft.kind === "bogo" && (
                         <>
                           <label className="admin-field">
                             <span>Buy</span>
@@ -851,7 +913,7 @@ export default function AdminImages() {
                               className="admin-input"
                               type="number"
                               min="1"
-                              value={offerDraft.config.buy || ''}
+                              value={offerDraft.config.buy || ""}
                               onChange={(e) =>
                                 setOfferDraft((prev) => ({
                                   ...prev,
@@ -866,7 +928,7 @@ export default function AdminImages() {
                               className="admin-input"
                               type="number"
                               min="1"
-                              value={offerDraft.config.get || ''}
+                              value={offerDraft.config.get || ""}
                               onChange={(e) =>
                                 setOfferDraft((prev) => ({
                                   ...prev,
@@ -877,7 +939,7 @@ export default function AdminImages() {
                           </label>
                         </>
                       )}
-                      {offerDraft.kind === 'percent_off_second' && (
+                      {offerDraft.kind === "percent_off_second" && (
                         <label className="admin-field">
                           <span>Discount on every 2nd item</span>
                           <input
@@ -885,7 +947,7 @@ export default function AdminImages() {
                             type="number"
                             min="1"
                             max="99"
-                            value={offerDraft.config.percent || ''}
+                            value={offerDraft.config.percent || ""}
                             onChange={(e) =>
                               setOfferDraft((prev) => ({
                                 ...prev,
@@ -897,7 +959,7 @@ export default function AdminImages() {
                       )}
                     </div>
 
-                    <div className="admin-save" style={{ borderTop: 'none', paddingTop: 10 }}>
+                    <div className="admin-save" style={{ borderTop: "none", paddingTop: 10 }}>
                       <label className="admin-check" style={{ marginRight: 16 }}>
                         <input
                           type="checkbox"
@@ -908,7 +970,7 @@ export default function AdminImages() {
                         />
                         <span>Active</span>
                       </label>
-                      <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ display: "flex", gap: 8 }}>
                         <label className="admin-field" style={{ flex: 1 }}>
                           <span>Starts</span>
                           <input
@@ -932,10 +994,10 @@ export default function AdminImages() {
                           />
                         </label>
                       </div>
-                      <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                      <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
                         <button className="admin-btn primary" type="button" onClick={saveOffer}
                           disabled={offersBusy}>
-                          {offersBusy ? 'Saving…' : editingOffer ? 'Update offer' : 'Create offer'}
+                          {offersBusy ? "Saving…" : editingOffer ? "Update offer" : "Create offer"}
                         </button>
                         <button className="admin-btn" type="button" onClick={() => setShowOfferForm(false)}
                           disabled={offersBusy}>
@@ -955,7 +1017,7 @@ export default function AdminImages() {
                         <th>Type</th>
                         <th>Status</th>
                         <th>Valid</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
+                        <th style={{ textAlign: "right" }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -964,7 +1026,7 @@ export default function AdminImages() {
                           new Date(o.starts_at || 0) <= new Date() &&
                           new Date(o.ends_at || 0) > new Date();
                         return (
-                          <tr key={o.id} className={`offer-row${active ? '' : ' inactive'}`}>
+                          <tr key={o.id} className={`offer-row${active ? "" : " inactive"}`}>
                             <td>
                               <strong>{o.title}</strong>
                               {o.subtitle && <span className="offer-sub">{o.subtitle}</span>}
@@ -975,25 +1037,25 @@ export default function AdminImages() {
                             </td>
                             <td>
                               <button
-                                className={`admin-btn tiny ${active ? 'danger' : ''}`}
+                                className={`admin-btn tiny ${active ? "danger" : ""}`}
                                 type="button"
                                 onClick={() => toggleOffer(o.id, active)}
                                 disabled={offersBusy}
                               >
-                                {active ? 'Pause' : 'Activate'}
+                                {active ? "Pause" : "Activate"}
                               </button>
                             </td>
                             <td>
                               {new Date(o.starts_at || 0).toLocaleDateString()} &rarr;
                               {new Date(o.ends_at || 0).toLocaleDateString()}
                             </td>
-                            <td style={{ textAlign: 'right' }}>
+                            <td style={{ textAlign: "right" }}>
                               <button
                                 className="admin-btn tiny"
                                 type="button"
                                 onClick={() => {
                                   resetOfferDraft(o);
-                                  setTab('offers');
+                                  setTab("offers");
                                 }}
                                 disabled={offersBusy}
                               >
@@ -1010,7 +1072,7 @@ export default function AdminImages() {
                             </td>
                           </tr>
                         );
-                      })}
+                    })}
                       {offers.length === 0 && (
                         <tr>
                           <td colSpan={6} className="admin-muted center">
@@ -1018,50 +1080,51 @@ export default function AdminImages() {
                           </td>
                         </tr>
                       )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            </div>
-            {auditUnavailable && (
-              <p className="admin-muted">
-                Run <strong>ADMIN_AUDIT_LOG.sql</strong> in the SQL Editor to start recording offer
-                changes.
-              </p>
-            )}
-            {auditEntries.length > 0 && (
-              <section className="admin-activity">
-                <div className="admin-save">
-                  <h2 className="admin-subtitle">Recent changes</h2>
-                  <button className="admin-btn" type="button" onClick={refreshOffers}>
-                    Refresh
-                  </button>
+                    </tbody>
+                  </table>
                 </div>
-                <ul className="admin-log">
-                  {auditEntries.map((e) => (
-                    <li key={e.id} className="admin-log-row">
-                      <span className={`admin-log-dot ${e.action}`} aria-hidden="true" />
-                      <span className="admin-log-actor">{e.actor}</span>
-                      <span className="admin-log-action">
-                        {e.action === 'create'
-                          ? 'created'
-                          : e.action === 'update'
-                            ? 'updated'
-                            : 'deleted'}
-                      </span>
-                      <span className="admin-log-detail">{e.detail}</span>
-                      <time className="admin-log-time" dateTime={e.created_at}>
-                        {timeAgo(e.created_at)}
-                      </time>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-          </>
-        )}
+              )}
+              {auditUnavailable && (
+                <p className="admin-muted">
+                  Run <strong>ADMIN_AUDIT_LOG.sql</strong> in the SQL Editor to start recording offer
+                  changes.
+                </p>
+              )}
+              {auditEntries.length > 0 && (
+                <section className="admin-activity">
+                  <div className="admin-save">
+                    <h2 className="admin-subtitle">Recent changes</h2>
+                    <button className="admin-btn" type="button" onClick={refreshOffers}>
+                      Refresh
+                    </button>
+                  </div>
+                  <ul className="admin-log">
+                    {auditEntries.map((e) => (
+                      <li key={e.id} className="admin-log-row">
+                        <span className={`admin-log-dot ${e.action}`} aria-hidden="true" />
+                        <span className="admin-log-actor">{e.actor}</span>
+                        <span className="admin-log-action">
+                          {e.action === "create"
+                            ? "created"
+                            : e.action === "update"
+                              ? "updated"
+                              : "deleted"}
+                        </span>
+                        <span className="admin-log-detail">{e.detail}</span>
+                        <time className="admin-log-time" dateTime={e.created_at}>
+                          {timeAgo(e.created_at)}
+                        </time>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+              </div>
+            </>
+          )}
+
         {/* ============ ORDERS TAB ============ */}
-        {tab === 'orders' && (
+        {tab === "orders" && (
           <>
             {ordersError && <p className="admin-error">{ordersError}</p>}
             {ordersBusy && orders.length === 0 && (
@@ -1070,7 +1133,7 @@ export default function AdminImages() {
 
             <div className="admin-controls admin-orders-header">
               <div style={{ flex: 1 }}>
-                <span className="eyebrow" style={{ display: 'block', marginBottom: 6 }}>
+                <span className="eyebrow" style={{ display: "block", marginBottom: 6 }}>
                   Order Management
                 </span>
                 <p className="admin-muted" style={{ margin: 0 }}>
@@ -1094,7 +1157,7 @@ export default function AdminImages() {
                     <th>Total</th>
                     <th>Date</th>
                     <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Action</th>
+                    <th style={{ textAlign: "right" }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1109,25 +1172,25 @@ export default function AdminImages() {
                         <td>{o.customer_name}</td>
                         <td>{formatPhone(o.phone)}</td>
                         <td>
-                          {o.wilaya} / {o.commune || '—'}
+                          {o.wilaya} / {o.commune || "—"}
                         </td>
-                        <td style={{ maxWidth: '260px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <td style={{ maxWidth: "260px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {items}
                         </td>
-                        <td>{o.total != null ? `DZD ${Number(o.total).toLocaleString()}` : '-'}</td>
+                        <td>{o.total != null ? `DZD ${Number(o.total).toLocaleString()}` : "-"}</td>
                         <td className="admin-orders-date">{date}</td>
                         <td>
                           <select
                             className={`admin-orders-status ${
-                              o.status === 'no answer' ? 'no-answer' : o.status
+                              o.status === "no answer" ? "no-answer" : o.status
                             }`}
                             value={o.status}
                             onChange={(e) => {
                               const newStatus = e.target.value;
                               if (!newStatus) return;
                               setOrdersBusy(true);
-                              setOrdersError('');
-                              updateOrderStatus({ id: o.id, status: newStatus, actor, pin })
+                              setOrdersError("");
+                              updateOrderStatus({ id: o.id, status: newStatus, actor: "" })
                                 .then(() => {
                                   setOrders((prev) =>
                                     prev.map((p) => (p.id === o.id ? { ...p, status: newStatus } : p))
@@ -1135,7 +1198,7 @@ export default function AdminImages() {
                                   showToast(`Order ${o.order_number} updated`);
                                 })
                                 .catch((err) => {
-                                  setOrdersError(err.message || 'Could not update order.');
+                                  setOrdersError(err.message || "Could not update order.");
                                 })
                                 .finally(() => setOrdersBusy(false));
                             }}
@@ -1147,7 +1210,7 @@ export default function AdminImages() {
                             ))}
                           </select>
                         </td>
-                        <td style={{ textAlign: 'right' }}>
+                        <td style={{ textAlign: "right" }}>
                           {o.tracking_number ? (
                             <span className="admin-orders-tracking">
                               📦 {o.tracking_number}
@@ -1157,19 +1220,19 @@ export default function AdminImages() {
                           )}
                         </td>
                       </tr>
-                    );
-                  })}
-                  {orders.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="admin-muted center">
-                        No orders found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
+                    );})}
+                    {orders.length === 0 && (
+                      <tr>
+                        <td colSpan={9} className="admin-muted center">
+                          No orders found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         )}
       </div>
     </div>
@@ -1179,9 +1242,9 @@ export default function AdminImages() {
 /** Compact "3m ago" / "2d ago" stamp for the activity list. */
 function timeAgo(iso) {
   const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return '';
+  if (Number.isNaN(then)) return "";
   const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (secs < 60) return 'just now';
+  if (secs < 60) return "just now";
   const mins = Math.round(secs / 60);
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.round(mins / 60);

@@ -96,6 +96,7 @@ async function callAdminImages(formData, pin) {
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         'x-admin-pin': pin,
       },
+      credentials: 'include',
       body: formData,
     });
   } catch {
