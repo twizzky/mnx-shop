@@ -60,7 +60,7 @@ function clearSessionCookie(): string {
 }
 
 function clearCsrfCookie(): string {
-  return `${CSRF_COOKIE_NAME}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`;
+  return `${CSRF_COOKIE_NAME}=; Secure; SameSite=None; Path=/; Max-Age=0`;
 }
 
 function getSessionCookie(cookieHeader: string | null): string | null {

@@ -22,13 +22,10 @@ function headers(csrfToken?: string): HeadersInit {
   return h;
 }
 
-/** Read the CSRF token from the HttpOnly-inaccessible cookie.
- * Note: csrf cookie is also HttpOnly, so we can't read it from JS.
- * Instead, the CSRF token is embedded in the page by the login response
- * or we use a double-submit pattern where the client reads it from
- * a non-HttpOnly cookie. For simplicity, we use the Origin header
- * check on the server side as primary CSRF protection, and accept
- * that the X-CSRF-Token header is sent when available.
+/** Read the CSRF token from the mnx_admin_csrf cookie.
+ * The cookie is non-HttpOnly so JavaScript can read it and send it
+ * as the X-CSRF-Token header on state-changing requests (double-submit pattern).
+ * Server validates cookie value == header value using constant-time comparison.
  */
 function getCsrfToken(): string | null {
   try {
