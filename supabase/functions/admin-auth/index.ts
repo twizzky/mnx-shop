@@ -91,13 +91,13 @@ function clearSessionCookie(): string {
 }
 
 function setCsrfCookie(token: string): string {
-  return `${CSRF_COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${Math.floor(
+  return `${CSRF_COOKIE_NAME}=${token}; Secure; SameSite=None; Path=/; Max-Age=${Math.floor(
     SESSION_MAX_LIFETIME_MS / 1000
   )}`;
 }
 
 function clearCsrfCookie(): string {
-  return `${CSRF_COOKIE_NAME}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`;
+  return `${CSRF_COOKIE_NAME}=; Secure; SameSite=None; Path=/; Max-Age=0`;
 }
 
 /** Extract session token from cookie header. */
@@ -152,8 +152,8 @@ Deno.serve(async (req) => {
   const origin = req.headers.get("origin") || "";
   const userAgent = req.headers.get("user-agent") || "unknown";
 
-  // CSRF protection for state-changing methods
-  if (req.method === "POST" || req.method === "PATCH" || req.method === "DELETE") {
+  // CSRF protection for state-changing methods (skip /login — it establishes the session)
+  if ((req.method === "POST" || req.method === "PATCH" || req.method === "DELETE") && path !== "/login") {
     if (origin !== EXPECTED_ORIGIN) {
       return jsonResponse({ success: false, error: "Invalid origin" }, 403);
     }
