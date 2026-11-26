@@ -179,6 +179,15 @@ export function applyOffer(qty, unitPrice, offer) {
       total = pairs * (unitPrice + unitPrice * (1 - percent / 100)) + singles * unitPrice;
       breakdown = `Every 2nd item ${percent}% off`;
     }
+  } else if (offer.kind === 'bulk_discount') {
+    const c = offer.config || {};
+    const minQty = Number(c.minQuantity) || 1;
+    const regularPrice = Number(c.regularPrice) || unitPrice;
+    const bulkPrice = Number(c.bulkPrice) || 0;
+    if (bulkPrice > 0 && qty > minQty) {
+      total = bulkPrice * qty;
+      breakdown = `Buy more than ${minQty} for ${bulkPrice.toFixed(2)} each`;
+    }
   }
 
   const savings = Math.max(0, regular - total);

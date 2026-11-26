@@ -41,9 +41,15 @@ export async function updateOrderStatus({ id, status, actor, pin }) {
   return callAdminOrders('PATCH', { id, status, actor }, pin);
 }
 
+export async function updateOrderNotes({ id, notes, pin }) {
+  return callAdminOrders('PATCH', { id, notes }, pin);
+}
+
 export const ORDER_STATUS_LABELS = {
   pending: 'Pending', confirmed: 'Confirmed', shipped: 'Shipped',
-  delayed: 'Delayed', 'no answer': 'No Answer', cancelled: 'Cancelled',
+  delayed: 'Delayed', 'no answer': 'No Answer', 'no answer 1': 'No Answer 1',
+  'no answer 2': 'No Answer 2', 'no answer 3': 'No Answer 3 (Final)',
+  cancelled: 'Cancelled',
 };
 
 export const ORDER_STATUS_COLORS = {
@@ -52,6 +58,9 @@ export const ORDER_STATUS_COLORS = {
   shipped: 'bg-green-50 text-green-700 border-green-200',
   delayed: 'bg-orange-50 text-orange-700 border-orange-200',
   'no answer': 'bg-red-50 text-red-700 border-red-200',
+  'no answer 1': 'bg-red-100 text-red-800 border-red-300',
+  'no answer 2': 'bg-red-200 text-red-800 border-red-400',
+  'no answer 3': 'bg-red-300 text-red-900 border-red-500',
   cancelled: 'bg-gray-50 text-gray-600 border-gray-200',
 };
 

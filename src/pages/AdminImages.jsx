@@ -21,6 +21,7 @@ import {
 import {
   fetchAllOrders,
   updateOrderStatus,
+  updateOrderNotes,
   ORDER_STATUS_LABELS,
   ORDER_STATUS_COLORS,
   formatPhone,
@@ -445,6 +446,7 @@ export default function AdminImages() {
     if (o.kind === "x_for_price") return `${Number(c.quantity) || 0} for $${(Number(c.price) || 0).toFixed(2)}`;
     if (o.kind === "bogo") return `Buy ${Number(c.buy) || 0} Get ${Number(c.get) || 0} Free`;
     if (o.kind === "percent_off_second") return `2nd item ${Number(c.percent) || 0}% off`;
+    if (o.kind === "bulk_discount") return `Buy more than ${Number(c.minQuantity) || 0} for $${(Number(c.bulkPrice) || 0).toFixed(2)} each`;
     return o.kind;
   };
 
@@ -866,6 +868,7 @@ export default function AdminImages() {
                         <option value="x_for_price">Multi-buy price (X for $N)</option>
                         <option value="bogo">Buy X Get Y Free</option>
                         <option value="percent_off_second">Every 2nd item % off</option>
+                        <option value="bulk_discount">Bulk discount (buy more than N for price Y)</option>
                       </select>
                     </label>
 
@@ -956,6 +959,57 @@ export default function AdminImages() {
                             }
                           />
                         </label>
+                      )}
+                      {offerDraft.kind === "bulk_discount" && (
+                        <>
+                          <label className="admin-field">
+                            <span>Buy more than this many units</span>
+                            <input
+                              className="admin-input"
+                              type="number"
+                              min="0"
+                              value={offerDraft.config.minQuantity || ""}
+                              onChange={(e) =>
+                                setOfferDraft((prev) => ({
+                                  ...prev,
+                                  config: { ...prev.config, minQuantity: Number(e.target.value) || 0 },
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="admin-field">
+                            <span>Regular unit price</span>
+                            <input
+                              className="admin-input"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={offerDraft.config.regularPrice || ""}
+                              onChange={(e) =>
+                                setOfferDraft((prev) => ({
+                                  ...prev,
+                                  config: { ...prev.config, regularPrice: Number(e.target.value) || 0 },
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="admin-field">
+                            <span>Bulk price per unit</span>
+                            <input
+                              className="admin-input"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={offerDraft.config.bulkPrice || ""}
+                              onChange={(e) =>
+                                setOfferDraft((prev) => ({
+                                  ...prev,
+                                  config: { ...prev.config, bulkPrice: Number(e.target.value) || 0 },
+                                }))
+                              }
+                            />
+                          </label>
+                        </>
                       )}
                     </div>
 
@@ -1157,77 +1211,19 @@ export default function AdminImages() {
                     <th>Total</th>
                     <th>Date</th>
                     <th>Status</th>
+                    <th>Notes</th>
                     <th style={{ textAlign: "right" }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((o) => {
-                    const items = summarizeItems(o);
-                    const date = new Date(o.created_at || 0).toLocaleString();
-                    return (
-                      <tr key={o.id} className="admin-orders-row">
-                        <td>
-                          <strong>{o.order_number}</strong>
-                        </td>
-                        <td>{o.customer_name}</td>
-                        <td>{formatPhone(o.phone)}</td>
-                        <td>
-                          {o.wilaya} / {o.commune || "—"}
-                        </td>
-                        <td style={{ maxWidth: "260px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {items}
-                        </td>
-                        <td>{o.total != null ? `DZD ${Number(o.total).toLocaleString()}` : "-"}</td>
-                        <td className="admin-orders-date">{date}</td>
-                        <td>
-                          <select
-                            className={`admin-orders-status ${
-                              o.status === "no answer" ? "no-answer" : o.status
-                            }`}
-                            value={o.status}
-                            onChange={(e) => {
-                              const newStatus = e.target.value;
-                              if (!newStatus) return;
-                              setOrdersBusy(true);
-                              setOrdersError("");
-                              updateOrderStatus({ id: o.id, status: newStatus, actor: "" })
-                                .then(() => {
-                                  setOrders((prev) =>
-                                    prev.map((p) => (p.id === o.id ? { ...p, status: newStatus } : p))
-                                  );
-                                  showToast(`Order ${o.order_number} updated`);
-                                })
-                                .catch((err) => {
-                                  setOrdersError(err.message || "Could not update order.");
-                                })
-                                .finally(() => setOrdersBusy(false));
-                            }}
-                          >
-                            {Object.entries(ORDER_STATUS_LABELS).map(([key, label]) => (
-                              <option key={key} value={key}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td style={{ textAlign: "right" }}>
-                          {o.tracking_number ? (
-                            <span className="admin-orders-tracking">
-                              📦 {o.tracking_number}
-                            </span>
-                          ) : (
-                            <span className="admin-muted">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    );})}
-                    {orders.length === 0 && (
-                      <tr>
-                        <td colSpan={9} className="admin-muted center">
-                          No orders found.
-                        </td>
-                      </tr>
-                    )}
+                  {renderOrderGroups()}
+                  {orders.length === 0 && (
+                    <tr>
+                      <td colSpan={10} className="admin-muted center">
+                        No orders found.
+                      </td>
+                    </tr>
+                  )}
                   </tbody>
                 </table>
               </div>
@@ -1252,4 +1248,160 @@ function timeAgo(iso) {
   const days = Math.round(hrs / 24);
   if (days < 30) return `${days}d ago`;
   return new Date(iso).toLocaleDateString();
+}
+
+/** Group orders by day and render with date separators. */
+function renderOrderGroups() {
+  const groups = new Map();
+  for (const o of orders) {
+    const day = new Date(o.created_at || 0).toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+    if (!groups.has(day)) groups.set(day, []);
+    groups.get(day).push(o);
+  }
+
+  const rows = [];
+  for (const [day, dayOrders] of groups.entries()) {
+    rows.push(
+      <tr key={`day-${day}`} className="admin-orders-day">
+        <td colSpan={10} className="admin-orders-day-label">
+          {day}
+        </td>
+      </tr>
+    );
+    for (const o of dayOrders) {
+      const items = summarizeItems(o);
+      const date = new Date(o.created_at || 0).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const isNoAnswer = o.status.startsWith("no answer");
+      const callCount = isNoAnswer
+        ? Number(o.status.replace("no answer ", "") || 1)
+        : 0;
+      rows.push(
+        <tr key={o.id} className="admin-orders-row">
+          <td>
+            <strong>{o.order_number}</strong>
+          </td>
+          <td>{o.customer_name}</td>
+          <td>{formatPhone(o.phone)}</td>
+          <td>
+            {o.wilaya} / {o.commune || "—"}
+          </td>
+          <td style={{ maxWidth: "260px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {items}
+          </td>
+          <td>
+            {o.total != null ? `DZD ${Number(o.total).toLocaleString()}` : "-"}
+          </td>
+          <td className="admin-orders-date">{date}</td>
+          <td>
+            <select
+              className={`admin-orders-status ${o.status.replace(" ", "-")}`}
+              value={o.status}
+              onChange={(e) => {
+                const newStatus = e.target.value;
+                if (!newStatus) return;
+                setOrdersBusy(true);
+                setOrdersError("");
+                updateOrderStatus({ id: o.id, status: newStatus, actor: "" })
+                  .then(() => {
+                    setOrders((prev) =>
+                      prev.map((p) =>
+                        p.id === o.id ? { ...p, status: newStatus } : p
+                      )
+                    );
+                    showToast(`Order ${o.order_number} updated`);
+                  })
+                  .catch((err) => {
+                    setOrdersError(err.message || "Could not update order.");
+                  })
+                  .finally(() => setOrdersBusy(false));
+              }}
+            >
+              {Object.entries(ORDER_STATUS_LABELS).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </td>
+          <td>
+            <input
+              className="admin-input"
+              type="text"
+              value={o.notes || ""}
+              placeholder="Add a note…"
+              onChange={(e) => {
+                setOrdersBusy(true);
+                setOrdersError("");
+                updateOrderNotes({
+                  id: o.id,
+                  notes: e.target.value,
+                  pin: "",
+                })
+                  .then(() => {
+                    setOrders((prev) =>
+                      prev.map((p) =>
+                        p.id === o.id ? { ...p, notes: e.target.value } : p
+                      )
+                    );
+                  })
+                  .catch((err) => {
+                    setOrdersError(err.message || "Could not save note.");
+                  })
+                  .finally(() => setOrdersBusy(false));
+              }}
+            />
+          </td>
+          <td style={{ textAlign: "right" }}>
+            {isNoAnswer && callCount < 3 ? (
+              <button
+                className="admin-btn tiny"
+                type="button"
+                onClick={() => {
+                  const next = `no answer ${callCount + 1}`;
+                  setOrdersBusy(true);
+                  setOrdersError("");
+                  updateOrderStatus({ id: o.id, status: next, actor: "" })
+                    .then(() => {
+                      setOrders((prev) =>
+                        prev.map((p) =>
+                          p.id === o.id ? { ...p, status: next } : p
+                        )
+                      );
+                      showToast(`Call logged: ${next}`);
+                    })
+                    .catch((err) => {
+                      setOrdersError(err.message || "Could not log call.");
+                    })
+                    .finally(() => setOrdersBusy(false));
+                }}
+                disabled={ordersBusy}
+              >
+                Call Client ({callCount + 1}/3)
+              </button>
+            ) : isNoAnswer ? (
+              <span className="admin-muted">Max calls reached</span>
+            ) : (
+              <span className="admin-muted">—</span>
+            )}
+            {o.tracking_number ? (
+              <>
+                <br />
+                <span className="admin-orders-tracking">
+                  📦 {o.tracking_number}
+                </span>
+              </>
+            ) : null}
+          </td>
+        </tr>
+      );
+    }
+  }
+  return rows;
 }

@@ -6,7 +6,7 @@ import { useProducts } from '../hooks/useProducts';
 import { getVariants, variantLabel } from '../utils/variants';
 import { useCart } from '../hooks/useCart';
 import { useToast } from '../hooks/useToast';
-import { findActiveOffer, applyOffer } from '../services/offers';
+import { findActiveOffer } from '../services/offers';
 import QtyStepper from '../components/UI/QtyStepper';
 import AvailabilityIndicator from '../components/UI/AvailabilityIndicator';
 import Button from '../components/UI/Button';
@@ -45,11 +45,6 @@ export default function ProductDetails() {
   const variants = getVariants(products, product);
 
   const offer = findActiveOffer(product, offers, products);
-  const { total: offerTotal, savings: offerSavings, breakdown } = applyOffer(
-    qty,
-    product.price,
-    offer
-  );
 
   const stepQty = (delta) => {
     setQty((v) => Math.min(Math.max(1, v + delta), canBuy ? maxQty : 1));
@@ -117,11 +112,6 @@ export default function ProductDetails() {
               <div className="pd-offer">
                 <span className="pd-offer-title">{offer.title}</span>
                 {offer.subtitle && <span className="pd-offer-sub">{offer.subtitle}</span>}
-                {breakdown && (
-                  <span className="pd-offer-breakdown">
-                    {breakdown} — {fmt(offerTotal)} for {qty} (save {fmt(offerSavings)})
-                  </span>
-                )}
               </div>
             )}
             <p className="pd-desc">{product.desc}</p>

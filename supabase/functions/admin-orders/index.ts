@@ -29,6 +29,9 @@ const ALLOWED_STATUSES = new Set([
   "shipped",
   "delayed",
   "no answer",
+  "no answer 1",
+  "no answer 2",
+  "no answer 3",
   "cancelled",
 ]);
 
@@ -205,21 +208,22 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: true, orders: data || [] });
     }
 
-    // ---------- update status ----------
+    // ---------- update status / notes ----------
     if (req.method === "PATCH") {
       const id = url.searchParams.get("id") || "";
-      const status = url.searchParams.get("status") || "";
+      const status = url.searchParams.get("status") || undefined;
+      const notes = url.searchParams.get("notes") || undefined;
 
-      if (!id || !status) {
-        return jsonResponse({ success: false, error: "Missing id or status." }, 400);
+      if (!id) {
+        return jsonResponse({ success: false, error: "Missing order id." }, 400);
       }
-      if (!ALLOWED_STATUSES.has(status)) {
-        return jsonResponse({ success: false, error: "Invalid status." }, 400);
+      if (status === undefined && notes === undefined) {
+        return jsonResponse({ success: false, error: "Nothing to update." }, 400);
       }
 
       const { data: before, error: beforeError } = await supabaseAdmin
         .from("orders")
-        .select("id, order_number, customer_name, status")
+        .select("id, order_number, customer_name, status, notes")
         .eq("id", id)
         .single();
 
@@ -227,15 +231,31 @@ Deno.serve(async (req) => {
         return jsonResponse({ success: false, error: "Order not found." }, 404);
       }
 
+      const updates: Record<string, unknown> = {};
+      let detailParts: string[] = [];
+
+      if (status !== undefined) {
+        if (!ALLOWED_STATUSES.has(status)) {
+          return jsonResponse({ success: false, error: "Invalid status." }, 400);
+        }
+        updates.status = status;
+        detailParts.push(`status: ${before.status} -> ${status}`);
+      }
+
+      if (notes !== undefined) {
+        updates.notes = notes;
+        detailParts.push(`notes updated`);
+      }
+
       const { error } = await supabaseAdmin
         .from("orders")
-        .update({ status })
+        .update(updates)
         .eq("id", id);
 
       if (error) {
         console.error("update order failed:", error.message);
         return jsonResponse(
-          { success: false, error: "Could not update order status." },
+          { success: false, error: "Could not update order." },
           500
         );
       }
@@ -244,11 +264,11 @@ Deno.serve(async (req) => {
         user_id: session.userId,
         action: "update",
         product_ids: [id],
-        detail: `Order ${before.order_number} status: ${before.status} -> ${status}`,
+        detail: `Order ${before.order_number} ${detailParts.join(", ")}`,
         ip_address: ip,
         user_agent: req.headers.get("user-agent") || "unknown",
       });
-      return jsonResponse({ success: true, id, status });
+      return jsonResponse({ success: true, id, status, notes });
     }
 
     return jsonResponse({ success: false, error: "Unknown method." }, 405);
