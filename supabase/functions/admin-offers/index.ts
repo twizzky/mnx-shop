@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
   const origin = req.headers.get("origin") || "";
 
   if (req.method === "POST") {
-    if (origin !== EXPECTED_ORIGIN) {
+    if (origin !== ALLOWED_ORIGIN) {
       return jsonResponse({ success: false, error: "Invalid origin" }, 403);
     }
     const csrfHeader = req.headers.get("x-csrf-token");
