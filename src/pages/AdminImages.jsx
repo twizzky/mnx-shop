@@ -115,15 +115,21 @@ export default function AdminImages() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const result = await adminSession();
-      if (!cancelled) {
-        if (result.ok) {
-          setAuthState({
-            status: result.mfa_required ? "mfa_required" : "authenticated",
-            user: result.user,
-            error: "",
-          });
-        } else {
+      try {
+        const result = await adminSession();
+        if (!cancelled) {
+          if (result.ok) {
+            setAuthState({
+              status: result.mfa_required ? "mfa_required" : "authenticated",
+              user: result.user,
+              error: "",
+            });
+          } else {
+            setAuthState({ status: "unauthenticated", user: null, error: "" });
+          }
+        }
+      } catch {
+        if (!cancelled) {
           setAuthState({ status: "unauthenticated", user: null, error: "" });
         }
       }
