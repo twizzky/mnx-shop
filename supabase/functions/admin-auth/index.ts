@@ -51,8 +51,8 @@ import {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const CSRF_SECRET = Deno.env.get("CSRF_SECRET")!;
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN")!;
+const CSRF_SECRET = Deno.env.get("CSRF_SECRET") || "";
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://mnx-shop.vercel.app";
 
 const SESSION_COOKIE_NAME = "mnx_admin_session";
 const CSRF_COOKIE_NAME = "csrf";
@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
 
   // CSRF protection for state-changing methods (skip /login — it establishes the session)
   if ((req.method === "POST" || req.method === "PATCH" || req.method === "DELETE") && path !== "/login") {
-    if (origin !== EXPECTED_ORIGIN) {
+    if (origin !== ALLOWED_ORIGIN) {
       return jsonResponse({ success: false, error: "Invalid origin" }, 403);
     }
     const csrfHeader = req.headers.get("x-csrf-token");
@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
     // Create session
     const token = await createSession(user.id, ip, userAgent);
     const tokenHash = await hashToken(token);
-    const csrfToken = crypto.randomUUID();
+    const csrfToken = generateToken();
 
     const sessionExpires = new Date(
       Date.now() + SESSION_MAX_LIFETIME_MS
