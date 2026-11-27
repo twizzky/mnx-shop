@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getCsrfToken } from './auth';
 
 // Product photos live in a public Supabase Storage bucket. Reads are
 // plain public URLs (no auth, which is what lets `format.js` render them
@@ -86,6 +87,7 @@ async function callAdminImages(formData, pin) {
 
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-images`;
   formData.append('pin', pin);
+  const token = getCsrfToken();
 
   let res;
   try {
@@ -95,6 +97,7 @@ async function callAdminImages(formData, pin) {
         apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         'x-admin-pin': pin,
+        ...(token ? { 'x-csrf-token': token } : {}),
       },
       credentials: 'include',
       body: formData,

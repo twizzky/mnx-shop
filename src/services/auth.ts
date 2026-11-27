@@ -26,6 +26,11 @@ function headers(csrfToken?: string): HeadersInit {
   return h;
 }
 
+/** Get the current CSRF token (for other admin service calls). */
+export function getCsrfToken(): string | null {
+  return getStoredCsrfToken();
+}
+
 /** Read the stored CSRF token from the module variable. */
 function getStoredCsrfToken(): string | null {
   return csrfToken;

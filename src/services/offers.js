@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getCsrfToken } from './auth';
 
 /**
  * Client-side offer logic.
@@ -25,10 +26,12 @@ export async function fetchActiveOffers() {
 const OFFERS_FUNCTION = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-offers`;
 
 function adminHeaders(pin) {
+  const token = getCsrfToken();
   return {
     apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
     Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
     'x-admin-pin': pin,
+    ...(token ? { 'x-csrf-token': token } : {}),
   };
 }
 

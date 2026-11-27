@@ -63,19 +63,8 @@ export default function AdminImages() {
 
     const result = await adminLogin(email, password);
     if (result.ok) {
-      if (result.user?.totp_enabled === false) {
-        // New account — mandatory 2FA setup before dashboard access
-        setAuthState((prev) => ({
-          ...prev,
-          status: "2fa_setup",
-          user: result.user,
-          error: "",
-        }));
-      } else if (result.mfa_required) {
-        setAuthState({ status: "mfa_required", user: result.user, error: "" });
-      } else {
-        setAuthState({ status: "authenticated", user: result.user, error: "" });
-      }
+      // 2FA gate temporarily disabled — go straight to the dashboard
+      setAuthState({ status: "authenticated", user: result.user, error: "" });
     } else {
       setAuthState((prev) => ({ ...prev, error: result.error || "Invalid credentials." }));
     }
@@ -194,17 +183,12 @@ export default function AdminImages() {
         const result = await adminSession();
         if (!cancelled) {
           if (result.ok) {
-            if (result.user?.totp_enabled === false) {
-              setAuthState((prev) => ({ ...prev, status: "2fa_setup", user: result.user, error: "" }));
-            } else if (result.mfa_required) {
-              setAuthState({ status: "mfa_required", user: result.user, error: "" });
-            } else {
-              setAuthState({
-                status: "authenticated",
-                user: result.user,
-                error: "",
-              });
-            }
+            // 2FA gate temporarily disabled — go straight to the dashboard
+            setAuthState({
+              status: "authenticated",
+              user: result.user,
+              error: "",
+            });
           } else {
             setAuthState({ status: "unauthenticated", user: null, error: "" });
           }
