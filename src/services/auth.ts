@@ -92,6 +92,9 @@ export async function adminLogout() {
 export async function adminSession() {
   const res = await callAuth("/me", "GET");
   const data = await jsonBody(res);
+  if (res.ok && data.csrfToken) {
+    setStoredCsrfToken(data.csrfToken);
+  }
   return { ok: res.ok, status: res.status, ...data };
 }
 

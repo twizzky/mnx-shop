@@ -291,16 +291,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    return jsonResponse({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        totp_enabled: user.totp_enabled,
-        session_valid: user.session_valid,
-        mfa_required: user.mfa_required,
+    // Issue a fresh CSRF token on every /me so the frontend can recover it after reload
+    const freshCsrf = generateToken();
+
+    return jsonResponse(
+      {
+        success: true,
+        csrfToken: freshCsrf,
+        user: {
+          id: user.id,
+          email: user.email,
+          totp_enabled: user.totp_enabled,
+          session_valid: user.session_valid,
+          mfa_required: user.mfa_required,
+        },
       },
-    });
+      200,
+      { "Cache-Control": "no-store" },
+      [setCsrfCookie(freshCsrf)]
+    );
   }
 
   // ---- 2FA Setup ----
