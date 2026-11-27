@@ -74,12 +74,18 @@ const CORS_HEADERS = {
 function jsonResponse(
   body: Record<string, unknown>,
   status = 200,
-  extraHeaders: Record<string, string> = {}
+  extraHeaders: Record<string, string> = {},
+  setCookies: string[] = []
 ) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS_HEADERS, "Content-Type": "application/json", ...extraHeaders },
+  const headers = new Headers({
+    ...CORS_HEADERS,
+    "Content-Type": "application/json",
+    ...extraHeaders,
   });
+  for (const c of setCookies) {
+    headers.append("Set-Cookie", c);
+  }
+  return new Response(JSON.stringify(body), { status, headers });
 }
 
 function setSessionCookie(token: string): string {
@@ -249,13 +255,8 @@ Deno.serve(async (req) => {
         session_expires_at: sessionExpires,
       },
       200,
-      {
-        "Cache-Control": "no-store",
-        "Set-Cookie": [
-          setSessionCookie(token),
-          setCsrfCookie(csrfToken),
-        ].join(", "),
-      }
+      { "Cache-Control": "no-store" },
+      [setSessionCookie(token), setCsrfCookie(csrfToken)]
     );
   }
 
@@ -268,9 +269,8 @@ Deno.serve(async (req) => {
     return jsonResponse(
       { success: true },
       200,
-      {
-        "Set-Cookie": [clearSessionCookie(), clearCsrfCookie()].join(", "),
-      }
+      {},
+      [clearSessionCookie(), clearCsrfCookie()]
     );
   }
 
@@ -286,9 +286,8 @@ Deno.serve(async (req) => {
       return jsonResponse(
         { success: false, error: "Session expired" },
         401,
-        {
-          "Set-Cookie": [clearSessionCookie(), clearCsrfCookie()].join(", "),
-        }
+        {},
+        [clearSessionCookie(), clearCsrfCookie()]
       );
     }
 
