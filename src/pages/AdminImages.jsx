@@ -28,6 +28,7 @@ import {
   summarizeItems,
 } from "../services/orders";
 import { adminLogin, adminLogout, adminSession, admin2faSetup, admin2faEnable, admin2faVerify, admin2faRecovery } from "../services/auth";
+import QRCode from "qrcode";
 import "./AdminImages.css";
 
 const ACTOR_STORAGE_KEY = "mnx-admin-actor";
@@ -155,6 +156,17 @@ export default function AdminImages() {
     setTab("photos");
     sessionStorage.removeItem(ACTOR_STORAGE_KEY);
   };
+
+  const [qrDataUrl, setQrDataUrl] = useState("");
+
+  // Generate QR code locally when secret becomes available
+  useEffect(() => {
+    if (!authState.totp_secret) return;
+    const qrUrl = `otpauth://totp/MNX:${encodeURIComponent(authState.user?.email || "admin")}?secret=${authState.totp_secret}&issuer=MNX`;
+    QRCode.toDataURL(qrUrl, { width: 300, margin: 1 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [authState.totp_secret, authState.user]);
 
   // Fetch 2FA setup data when entering 2fa_setup state
   useEffect(() => {
@@ -635,7 +647,6 @@ export default function AdminImages() {
 
   // 2FA mandatory setup - new accounts must set up TOTP before dashboard access
   if (authState.status === "2fa_setup") {
-    const qrUrl = `otpauth://totp/MNX:${encodeURIComponent(authState.user?.email)}?secret=${authState.totp_secret}&issuer=MNX`;
     return (
       <div className="admin-page">
         <form className="admin-pin" onSubmit={handle2FAEnable}>
@@ -649,10 +660,11 @@ export default function AdminImages() {
           <div className="admin-field">
             <label>QR Code</label>
             <div className="admin-qr">
-              <img
-                src={`https://chart.googleapis.com/chart?chs=300x300&chld=L|0&cht=qr&chl=${encodeURIComponent(qrUrl)}`}
-                alt="QR code for 2FA setup"
-              />
+              {qrDataUrl ? (
+                <img src={qrDataUrl} alt="QR code for 2FA setup" />
+              ) : (
+                <span className="admin-muted">Generating QR code…</span>
+              )}
             </div>
             <p className="admin-muted">Or enter this secret manually:</p>
             <code className="admin-secret">{authState.totp_secret}</code>
