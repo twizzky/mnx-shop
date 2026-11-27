@@ -713,6 +713,29 @@ export default function AdminImages() {
             <span className="admin-muted">
               Signed in as {authState.user?.email}
             </span>
+            <div className="admin-tabs">
+              <button
+                className={`admin-tab${tab === "photos" ? " active" : ""}`}
+                type="button"
+                onClick={() => setTab("photos")}
+              >
+                Photos
+              </button>
+              <button
+                className={`admin-tab${tab === "offers" ? " active" : ""}`}
+                type="button"
+                onClick={() => setTab("offers")}
+              >
+                Offers
+              </button>
+              <button
+                className={`admin-tab${tab === "orders" ? " active" : ""}`}
+                type="button"
+                onClick={() => setTab("orders")}
+              >
+                Orders
+              </button>
+            </div>
             <button className="admin-btn" type="button" onClick={handleLogout}>
               Logout
             </button>
