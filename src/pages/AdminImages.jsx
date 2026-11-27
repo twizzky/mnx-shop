@@ -27,7 +27,7 @@ import {
   formatPhone,
   summarizeItems,
 } from "../services/orders";
-import { adminLogin, adminLogout, adminSession, admin2faVerify, admin2faRecovery } from "../services/auth";
+import { adminLogin, adminLogout, adminSession, admin2faSetup, admin2faEnable, admin2faVerify, admin2faRecovery } from "../services/auth";
 import "./AdminImages.css";
 
 const ACTOR_STORAGE_KEY = "mnx-admin-actor";
@@ -38,9 +38,11 @@ export default function AdminImages() {
 
   // ---------- Auth state ----------
   const [authState, setAuthState] = useState({
-    status: "checking", // 'checking' | 'unauthenticated' | 'authenticated' | 'mfa_required'
+    status: "checking", // 'checking' | 'unauthenticated' | 'authenticated' | 'mfa_required' | '2fa_setup'
     user: null,
     error: "",
+    totp_secret: "",
+    recovery_codes: [],
   });
 
   const [actor, setActor] = useState(() => sessionStorage.getItem(ACTOR_STORAGE_KEY) || "");
@@ -60,7 +62,14 @@ export default function AdminImages() {
 
     const result = await adminLogin(email, password);
     if (result.ok) {
-      if (result.mfa_required) {
+      if (result.user?.totp_enabled === false) {
+        // New account — mandatory 2FA setup before dashboard access
+        setAuthState({
+          status: "2fa_setup",
+          user: result.user,
+          error: "",
+        });
+      } else if (result.mfa_required) {
         setAuthState({ status: "mfa_required", user: result.user, error: "" });
       } else {
         setAuthState({ status: "authenticated", user: result.user, error: "" });
@@ -102,6 +111,41 @@ export default function AdminImages() {
     }
   };
 
+  const handle2FASetup = async () => {
+    const result = await admin2faSetup();
+    if (result.ok) {
+      setAuthState((prev) => ({
+        ...prev,
+        totp_secret: result.secret,
+        recovery_codes: result.recovery_codes,
+        error: "",
+      }));
+    } else {
+      setAuthState((prev) => ({ ...prev, error: result.error || "Failed to setup 2FA." }));
+    }
+  };
+
+  const handle2FAEnable = async (e) => {
+    e.preventDefault();
+    const code = document.getElementById("admin-2fa-setup-code").value;
+    if (!code) {
+      setAuthState((prev) => ({ ...prev, error: "Enter the verification code." }));
+      return;
+    }
+    const result = await admin2faEnable(code);
+    if (result.ok) {
+      setAuthState({
+        status: "authenticated",
+        user: authState.user,
+        error: "",
+        totp_secret: "",
+        recovery_codes: [],
+      });
+    } else {
+      setAuthState((prev) => ({ ...prev, error: result.error || "Invalid code." }));
+    }
+  };
+
   const handleLogout = async () => {
     await adminLogout();
     setAuthState({ status: "unauthenticated", user: null, error: "" });
@@ -111,6 +155,24 @@ export default function AdminImages() {
     sessionStorage.removeItem(ACTOR_STORAGE_KEY);
   };
 
+  // Fetch 2FA setup data when entering 2fa_setup state
+  useEffect(() => {
+    if (authState.status === "2fa_setup" && !authState.totp_secret) {
+      (async () => {
+        const result = await admin2faSetup();
+        if (result.ok) {
+          setAuthState((prev) => ({
+            ...prev,
+            totp_secret: result.secret,
+            recovery_codes: result.recovery_codes,
+          }));
+        } else {
+          setAuthState((prev) => ({ ...prev, error: result.error || "Failed to setup 2FA." }));
+        }
+      })();
+    }
+  }, [authState.status, authState.totp_secret]);
+
   // Check session on mount
   useEffect(() => {
     let cancelled = false;
@@ -119,11 +181,17 @@ export default function AdminImages() {
         const result = await adminSession();
         if (!cancelled) {
           if (result.ok) {
-            setAuthState({
-              status: result.mfa_required ? "mfa_required" : "authenticated",
-              user: result.user,
-              error: "",
-            });
+            if (result.user?.totp_enabled === false) {
+              setAuthState({ status: "2fa_setup", user: result.user, error: "" });
+            } else if (result.mfa_required) {
+              setAuthState({ status: "mfa_required", user: result.user, error: "" });
+            } else {
+              setAuthState({
+                status: "authenticated",
+                user: result.user,
+                error: "",
+              });
+            }
           } else {
             setAuthState({ status: "unauthenticated", user: null, error: "" });
           }
@@ -559,6 +627,77 @@ export default function AdminImages() {
             Use recovery code
           </button>
           {authState.error && <p className="admin-error">{authState.error}</p>}
+        </form>
+      </div>
+    );
+  }
+
+  // 2FA mandatory setup - new accounts must set up TOTP before dashboard access
+  if (authState.status === "2fa_setup") {
+    const qrUrl = `otpauth://totp/MNX:${encodeURIComponent(authState.user?.email)}?secret=${authState.totp_secret}&issuer=MNX`;
+    return (
+      <div className="admin-page">
+        <form className="admin-pin" onSubmit={handle2FAEnable}>
+          <span className="eyebrow">MNX</span>
+          <h1 className="shop-title">Set Up Two-Factor Authentication</h1>
+          <p className="admin-muted">
+            2FA is mandatory. Scan the QR code with Google Authenticator, Authy, or any TOTP app,
+            then enter the 6-digit code to enable it.
+          </p>
+
+          <div className="admin-field">
+            <label>QR Code</label>
+            <div className="admin-qr">
+              <img
+                src={`https://chart.googleapis.com/chart?chs=300x300&chld=L|0&cht=qr&chl=${encodeURIComponent(qrUrl)}`}
+                alt="QR code for 2FA setup"
+              />
+            </div>
+            <p className="admin-muted">Or enter this secret manually:</p>
+            <code className="admin-secret">{authState.totp_secret}</code>
+          </div>
+
+          <div className="admin-field">
+            <label>6-digit verification code</label>
+            <input
+              id="admin-2fa-setup-code"
+              className="admin-input"
+              type="text"
+              maxLength="6"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              required
+            />
+          </div>
+
+          <div className="admin-field">
+            <label>Recovery codes (save these!)</label>
+            <div className="admin-recovery-codes">
+              {authState.recovery_codes.map((code, i) => (
+                <span key={i} className="admin-recovery-code">{code}</span>
+              ))}
+            </div>
+            <p className="admin-muted">
+              Save these codes in a secure location. They are your only way to access your account
+              if you lose your authenticator app.
+            </p>
+          </div>
+
+          {authState.error && <p className="admin-error">{authState.error}</p>}
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button className="admin-btn primary" type="submit">
+              Enable 2FA
+            </button>
+            <button
+              className="admin-btn"
+              type="button"
+              onClick={() => setAuthState((prev) => ({ ...prev, status: "unauthenticated" }))}
+            >
+              Back to login
+            </button>
+          </div>
         </form>
       </div>
     );

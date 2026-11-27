@@ -498,6 +498,67 @@
 
 .admin-muted.center { text-align: center; padding: 30px 0; }
 
+/* ---------- 2FA setup ---------- */
+.admin-qr {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.admin-qr img {
+  width: 220px;
+  height: 220px;
+  image-rendering: pixelated;
+}
+.admin-secret {
+  display: block;
+  padding: 8px 10px;
+  margin: 6px 0;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  word-break: break-all;
+  text-align: center;
+}
+.admin-recovery-codes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin: 8px 0;
+}
+.admin-recovery-code {
+  padding: 6px 8px;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+
+/* ---------- Orders ---------- */
+.admin-orders-day-label {
+  padding: 10px 12px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--gray-600);
+  background: var(--paper-soft);
+  border-top: 2px solid var(--line);
+}
+.admin-orders-status {
+  max-width: 140px;
+}
+.admin-input[type="text"] {
+  min-width: 120px;
+}
+
 /* ---------- Orders tab ---------- */
 .admin-orders-header {
   display: flex;
