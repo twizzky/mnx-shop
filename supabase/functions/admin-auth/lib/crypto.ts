@@ -36,7 +36,13 @@ export function generateToken(): string {
   return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Hash a token for storage (we never store plaintext tokens). */
+/** Hash a token for storage (deterministic SHA-256 so it can be looked up). */
 export async function hashToken(token: string): Promise<string> {
-  return await bcrypt.hash(token, SALT_ROUNDS);
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(token)
+  );
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
