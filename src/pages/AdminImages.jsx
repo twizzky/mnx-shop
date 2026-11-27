@@ -64,11 +64,12 @@ export default function AdminImages() {
     if (result.ok) {
       if (result.user?.totp_enabled === false) {
         // New account — mandatory 2FA setup before dashboard access
-        setAuthState({
+        setAuthState((prev) => ({
+          ...prev,
           status: "2fa_setup",
           user: result.user,
           error: "",
-        });
+        }));
       } else if (result.mfa_required) {
         setAuthState({ status: "mfa_required", user: result.user, error: "" });
       } else {
@@ -182,7 +183,7 @@ export default function AdminImages() {
         if (!cancelled) {
           if (result.ok) {
             if (result.user?.totp_enabled === false) {
-              setAuthState({ status: "2fa_setup", user: result.user, error: "" });
+              setAuthState((prev) => ({ ...prev, status: "2fa_setup", user: result.user, error: "" }));
             } else if (result.mfa_required) {
               setAuthState({ status: "mfa_required", user: result.user, error: "" });
             } else {
@@ -674,7 +675,7 @@ export default function AdminImages() {
           <div className="admin-field">
             <label>Recovery codes (save these!)</label>
             <div className="admin-recovery-codes">
-              {authState.recovery_codes.map((code, i) => (
+              {(authState.recovery_codes || []).map((code, i) => (
                 <span key={i} className="admin-recovery-code">{code}</span>
               ))}
             </div>
