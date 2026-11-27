@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
   const userAgent = req.headers.get("user-agent") || "unknown";
 
   // CSRF protection for state-changing methods (skip /login — it establishes the session)
-  if ((req.method === "POST" || req.method === "PATCH" || req.method === "DELETE") && path !== "/login") {
+  if ((req.method === "POST" || req.method === "PATCH" || req.method === "DELETE") && !path.endsWith("/login")) {
     if (origin !== ALLOWED_ORIGIN) {
       return jsonResponse({ success: false, error: "Invalid origin" }, 403);
     }
@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
   }
 
   // ---- Login ----
-  if (path === "/login" && req.method === "POST") {
+  if (path.endsWith("/login") && req.method === "POST") {
     const rateLimit = checkRateLimit(ip);
     if (!rateLimit.allowed) {
       return jsonResponse(
@@ -260,7 +260,7 @@ Deno.serve(async (req) => {
   }
 
   // ---- Logout ----
-  if (path === "/logout" && req.method === "POST") {
+  if (path.endsWith("/logout") && req.method === "POST") {
     const token = getSessionCookie(cookieHeader);
     if (token) {
       await deleteSession(token);
@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
   }
 
   // ---- Session validation ----
-  if (path === "/me" && req.method === "GET") {
+  if (path.endsWith("/me") && req.method === "GET") {
     const token = getSessionCookie(cookieHeader);
     if (!token) {
       return jsonResponse({ success: false, error: "Not authenticated" }, 401);
@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
   }
 
   // ---- 2FA Setup ----
-  if (path === "/2fa/setup" && req.method === "POST") {
+  if (path.endsWith("/2fa/setup") && req.method === "POST") {
     const token = getSessionCookie(cookieHeader);
     if (!token) {
       return jsonResponse({ success: false, error: "Not authenticated" }, 401);
@@ -344,7 +344,7 @@ Deno.serve(async (req) => {
   }
 
   // ---- 2FA Enable ----
-  if (path === "/2fa/enable" && req.method === "POST") {
+  if (path.endsWith("/2fa/enable") && req.method === "POST") {
     const token = getSessionCookie(cookieHeader);
     if (!token) {
       return jsonResponse({ success: false, error: "Not authenticated" }, 401);
@@ -388,7 +388,7 @@ Deno.serve(async (req) => {
   }
 
   // ---- 2FA Verify (during login) ----
-  if (path === "/2fa/verify" && req.method === "POST") {
+  if (path.endsWith("/2fa/verify") && req.method === "POST") {
     const token = getSessionCookie(cookieHeader);
     if (!token) {
       return jsonResponse({ success: false, error: "Not authenticated" }, 401);
@@ -430,7 +430,7 @@ Deno.serve(async (req) => {
   }
 
   // ---- 2FA Recovery ----
-  if (path === "/2fa/recovery" && req.method === "POST") {
+  if (path.endsWith("/2fa/recovery") && req.method === "POST") {
     const token = getSessionCookie(cookieHeader);
     if (!token) {
       return jsonResponse({ success: false, error: "Not authenticated" }, 401);
