@@ -1381,7 +1381,13 @@ export default function AdminImages() {
                   </tr>
                 </thead>
                 <tbody>
-                  {renderOrderGroups()}
+                  {renderOrderGroups({
+                    orders,
+                    setOrders,
+                    setOrdersBusy,
+                    setOrdersError,
+                    showToast,
+                  })}
                   {orders.length === 0 && (
                     <tr>
                       <td colSpan={10} className="admin-muted center">
@@ -1414,8 +1420,9 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString();
 }
 
-/** Group orders by day and render with date separators. */
-function renderOrderGroups() {
+/** Group orders by day and render with date separators.
+ * Defined outside the component, so state access is passed in explicitly. */
+function renderOrderGroups({ orders, setOrders, setOrdersBusy, setOrdersError, showToast }) {
   const groups = new Map();
   for (const o of orders) {
     const day = new Date(o.created_at || 0).toLocaleDateString(undefined, {
