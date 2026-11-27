@@ -19,19 +19,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN")!;
 
 const SESSION_COOKIE_NAME = "mnx_admin_session";
-const CSRF_COOKIE_NAME = "mnx_admin_csrf";
+const CSRF_COOKIE_NAME = "csrf";
 const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_MAX_LIFETIME_MS = 8 * 60 * 60 * 1000;
-const EXPECTED_ORIGIN = Deno.env.get("VITE_SITE_URL") || "https://mnx-shop.vercel.app";
 
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": EXPECTED_ORIGIN,
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-csrf-token",
   "Access-Control-Allow-Credentials": "true",
+  "Vary": "Origin",
 };
 
 function jsonResponse(
@@ -50,7 +51,7 @@ function clearSessionCookie(): string {
 }
 
 function clearCsrfCookie(): string {
-  return `${CSRF_COOKIE_NAME}=; Secure; SameSite=None; Path=/; Max-Age=0`;
+  return `${CSRF_COOKIE_NAME}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`;
 }
 
 function getSessionCookie(cookieHeader: string | null): string | null {

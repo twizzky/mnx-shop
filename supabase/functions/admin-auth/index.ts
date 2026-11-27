@@ -17,6 +17,8 @@
 //
 // Environment variables:
 //   ADMIN_SESSION_SECRET  - random string for signing (optional extra layer)
+//   CSRF_SECRET           - secret for signing CSRF tokens (required)
+//   ALLOWED_ORIGIN        - exact Vercel frontend domain (required, e.g. https://mnx-shop.vercel.app)
 //   SUPABASE_URL          - auto-provided by Supabase
 //   SUPABASE_SERVICE_ROLE_KEY - auto-provided by Supabase
 
@@ -49,24 +51,24 @@ import {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-// Expected origin for CSRF protection
-const EXPECTED_ORIGIN = Deno.env.get("VITE_SITE_URL") || "https://mnx-shop.vercel.app";
+const CSRF_SECRET = Deno.env.get("CSRF_SECRET")!;
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN")!;
 
 const SESSION_COOKIE_NAME = "mnx_admin_session";
-const CSRF_COOKIE_NAME = "mnx_admin_csrf";
+const CSRF_COOKIE_NAME = "csrf";
 
 // Session duration constants
 const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const SESSION_MAX_LIFETIME_MS = 8 * 60 * 60 * 1000; // 8 hours
+const CSRF_MAX_AGE_MS = 3600 * 1000; // 1 hour
 
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": EXPECTED_ORIGIN,
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-csrf-token",
   "Access-Control-Allow-Credentials": "true",
-  "Access-Control-Max-Age": "86400",
+  "Vary": "Origin",
 };
 
 function jsonResponse(
@@ -91,13 +93,13 @@ function clearSessionCookie(): string {
 }
 
 function setCsrfCookie(token: string): string {
-  return `${CSRF_COOKIE_NAME}=${token}; Secure; SameSite=None; Path=/; Max-Age=${Math.floor(
-    SESSION_MAX_LIFETIME_MS / 1000
+  return `${CSRF_COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${Math.floor(
+    CSRF_MAX_AGE_MS / 1000
   )}`;
 }
 
 function clearCsrfCookie(): string {
-  return `${CSRF_COOKIE_NAME}=; Secure; SameSite=None; Path=/; Max-Age=0`;
+  return `${CSRF_COOKIE_NAME}=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`;
 }
 
 /** Extract session token from cookie header. */
@@ -225,7 +227,7 @@ Deno.serve(async (req) => {
     // Create session
     const token = await createSession(user.id, ip, userAgent);
     const tokenHash = await hashToken(token);
-    const csrfToken = generateToken();
+    const csrfToken = crypto.randomUUID();
 
     const sessionExpires = new Date(
       Date.now() + SESSION_MAX_LIFETIME_MS
@@ -237,6 +239,7 @@ Deno.serve(async (req) => {
     return jsonResponse(
       {
         success: true,
+        csrfToken,
         mfa_required: mfaRequired,
         user: {
           id: user.id,
@@ -247,6 +250,7 @@ Deno.serve(async (req) => {
       },
       200,
       {
+        "Cache-Control": "no-store",
         "Set-Cookie": [
           setSessionCookie(token),
           setCsrfCookie(csrfToken),

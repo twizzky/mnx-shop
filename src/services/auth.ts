@@ -5,37 +5,35 @@
  * so that HttpOnly session cookies are sent/received across the
  * vercel.app <-> supabase.co domain boundary.
  *
- * CSRF tokens are read from the mnx_admin_csrf cookie and sent via
- * the X-CSRF-Token header on state-changing requests.
+ * CSRF tokens are obtained from the login response body (as { csrfToken })
+ * and stored in a module variable. The token is sent via the
+ * X-CSRF-Token header on every state-changing request.
  */
 
 const ADMIN_AUTH_FUNCTION = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-auth`;
+
+let csrfToken: string | null = null;
 
 function headers(csrfToken?: string): HeadersInit {
   const h: HeadersInit = {
     apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
     Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
   };
-  if (csrfToken) {
-    (h as Record<string, string>)["x-csrf-token"] = csrfToken;
+  const token = csrfToken ?? getStoredCsrfToken();
+  if (token) {
+    (h as Record<string, string>)["x-csrf-token"] = token;
   }
   return h;
 }
 
-/** Read the CSRF token from the mnx_admin_csrf cookie.
- * The cookie is non-HttpOnly so JavaScript can read it and send it
- * as the X-CSRF-Token header on state-changing requests (double-submit pattern).
- * Server validates cookie value == header value using constant-time comparison.
- */
-function getCsrfToken(): string | null {
-  try {
-    const match = document.cookie.match(
-      new RegExp(`(?:^|; )mnx_admin_csrf=([^;]+)`)
-    );
-    return match ? match[1] : null;
-  } catch {
-    return null;
-  }
+/** Read the stored CSRF token from the module variable. */
+function getStoredCsrfToken(): string | null {
+  return csrfToken;
+}
+
+/** Store the CSRF token received from the server. */
+function setStoredCsrfToken(token: string | null) {
+  csrfToken = token;
 }
 
 async function callAuth(
@@ -44,12 +42,11 @@ async function callAuth(
   body?: unknown
 ): Promise<Response> {
   const url = `${ADMIN_AUTH_FUNCTION}${path}`;
-  const csrfToken = getCsrfToken();
   let res: Response;
   try {
     res = await fetch(url, {
       method,
-      headers: headers(csrfToken),
+      headers: headers(),
       credentials: "include",
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
@@ -71,12 +68,18 @@ async function jsonBody(res: Response): Promise<any> {
 export async function adminLogin(email: string, password: string) {
   const res = await callAuth("/login", "POST", { email, password });
   const data = await jsonBody(res);
+  if (res.ok && data.csrfToken) {
+    setStoredCsrfToken(data.csrfToken);
+  }
   return { ok: res.ok, status: res.status, ...data };
 }
 
 /** Logout - invalidate session server-side. */
 export async function adminLogout() {
   const res = await callAuth("/logout", "POST");
+  if (res.ok) {
+    setStoredCsrfToken(null);
+  }
   return res.ok;
 }
 
