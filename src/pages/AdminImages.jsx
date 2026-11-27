@@ -1389,11 +1389,10 @@ export default function AdminImages() {
                       </td>
                     </tr>
                   )}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

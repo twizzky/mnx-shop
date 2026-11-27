@@ -8,7 +8,6 @@ function adminHeaders(pin) {
   return {
     apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
     Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-    'x-admin-pin': pin,
     ...(token ? { 'x-csrf-token': token } : {}),
   };
 }
