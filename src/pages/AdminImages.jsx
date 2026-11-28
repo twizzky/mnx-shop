@@ -1383,6 +1383,7 @@ export default function AdminImages() {
                 <tbody>
                   {renderOrderGroups({
                     orders,
+                    ordersBusy,
                     setOrders,
                     setOrdersBusy,
                     setOrdersError,
@@ -1422,7 +1423,7 @@ function timeAgo(iso) {
 
 /** Group orders by day and render with date separators.
  * Defined outside the component, so state access is passed in explicitly. */
-function renderOrderGroups({ orders, setOrders, setOrdersBusy, setOrdersError, showToast }) {
+function renderOrderGroups({ orders, ordersBusy, setOrders, setOrdersBusy, setOrdersError, showToast }) {
   const groups = new Map();
   for (const o of orders) {
     const day = new Date(o.created_at || 0).toLocaleDateString(undefined, {
